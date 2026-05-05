@@ -1,0 +1,940 @@
+{
+  "project": "外卖点餐系统",
+  "total_apis": 70,
+  "modules": [
+    {
+      "name": "员工管理",
+      "priority": "P1",
+      "reason": "管理员工账号是系统管理的基础，但登录是进入系统的前提，故将登录部分设为P0。",
+      "apis": [
+        {
+          "path": "/admin/employee/login",
+          "method": "POST",
+          "summary": "员工登录",
+          "test_scenarios": [
+            "正常登录获取token",
+            "账号不存在",
+            "密码错误",
+            "账号已禁用",
+            "缺少必填参数"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/admin/employee/logout",
+          "method": "POST",
+          "summary": "员工退出",
+          "test_scenarios": [
+            "正常退出使token失效",
+            "未携带token退出",
+            "退出后token应失效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/employee",
+          "method": "POST",
+          "summary": "新增员工接口",
+          "test_scenarios": [
+            "正常新增",
+            "用户名已存在",
+            "必填字段缺失",
+            "权限校验",
+            "新增禁用状态员工"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/employee",
+          "method": "PUT",
+          "summary": "编辑员工信息",
+          "test_scenarios": [
+            "正常修改信息",
+            "修改不存在的员工",
+            "修改用户名与已有冲突",
+            "权限校验"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/employee/page",
+          "method": "GET",
+          "summary": "员工分页查询",
+          "test_scenarios": [
+            "正常分页查询",
+            "按条件搜索",
+            "无数据返回",
+            "页码或每页大小无效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/employee/status/{status}",
+          "method": "POST",
+          "summary": "启用禁用员工账号",
+          "test_scenarios": [
+            "正常启用",
+            "正常禁用",
+            "操作不存在的员工",
+            "权限校验",
+            "状态值无效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/employee/{id}",
+          "method": "GET",
+          "summary": "根据id查询员工",
+          "test_scenarios": [
+            "正常查询",
+            "查询不存在的ID",
+            "权限校验"
+          ],
+          "priority": "P1"
+        }
+      ],
+      "estimated_cases": 28,
+      "dependencies": [
+        "需要先登录获取token"
+      ]
+    },
+    {
+      "name": "分类管理",
+      "priority": "P1",
+      "reason": "分类是菜品和套餐的基础，属于核心基础数据管理。",
+      "apis": [
+        {
+          "path": "/admin/category",
+          "method": "POST",
+          "summary": "新增分类",
+          "test_scenarios": [
+            "正常新增",
+            "分类名已存在",
+            "必填字段缺失",
+            "权限校验"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/category",
+          "method": "PUT",
+          "summary": "修改分类",
+          "test_scenarios": [
+            "正常修改",
+            "修改不存在的分类",
+            "分类名与其他分类重复",
+            "权限校验"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/category",
+          "method": "DELETE",
+          "summary": "删除分类",
+          "test_scenarios": [
+            "正常删除",
+            "删除不存在的分类",
+            "删除关联了菜品的分类",
+            "权限校验"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/category/list",
+          "method": "GET",
+          "summary": "根据类型查询分类",
+          "test_scenarios": [
+            "正常查询",
+            "查询不存在的类型",
+            "不传类型参数"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/category/page",
+          "method": "GET",
+          "summary": "分类分页查询",
+          "test_scenarios": [
+            "正常分页",
+            "无数据",
+            "页码无效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/category/status/{status}",
+          "method": "POST",
+          "summary": "启用禁用分类",
+          "test_scenarios": [
+            "正常启用",
+            "正常禁用",
+            "操作不存在的分类",
+            "状态值无效",
+            "禁用关联了套餐的分类"
+          ],
+          "priority": "P1"
+        }
+      ],
+      "estimated_cases": 25,
+      "dependencies": [
+        "需要先登录获取token"
+      ]
+    },
+    {
+      "name": "菜品管理",
+      "priority": "P1",
+      "reason": "菜品是核心商品之一，管理其上下架和属性是基本业务功能。",
+      "apis": [
+        {
+          "path": "/admin/dish",
+          "method": "POST",
+          "summary": "新增菜品",
+          "test_scenarios": [
+            "正常新增",
+            "关联不存在的分类",
+            "必填字段缺失",
+            "权限校验",
+            "价格/库存无效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/dish",
+          "method": "PUT",
+          "summary": "修改菜品",
+          "test_scenarios": [
+            "正常修改",
+            "修改不存在的菜品",
+            "修改后关联的分类不存在",
+            "权限校验"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/dish",
+          "method": "DELETE",
+          "summary": "批量删除菜品",
+          "test_scenarios": [
+            "正常删除",
+            "删除不存在的菜品",
+            "删除关联了订单的菜品",
+            "空列表删除",
+            "权限校验"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/dish/list",
+          "method": "GET",
+          "summary": "list",
+          "test_scenarios": [
+            "正常查询",
+            "按分类ID查询",
+            "查询结果为空"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/dish/page",
+          "method": "GET",
+          "summary": "菜品分页查询",
+          "test_scenarios": [
+            "正常分页",
+            "条件搜索",
+            "无数据",
+            "页码无效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/dish/status/{status}",
+          "method": "POST",
+          "summary": "菜品起售、停售",
+          "test_scenarios": [
+            "正常起售",
+            "正常停售",
+            "操作不存在的菜品",
+            "状态值无效",
+            "停售关联套餐的菜品"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/dish/{id}",
+          "method": "GET",
+          "summary": "根据id查询菜品",
+          "test_scenarios": [
+            "正常查询",
+            "查询不存在的ID"
+          ],
+          "priority": "P1"
+        }
+      ],
+      "estimated_cases": 28,
+      "dependencies": [
+        "需要先登录获取token",
+        "依赖分类管理模块"
+      ]
+    },
+    {
+      "name": "套餐管理",
+      "priority": "P1",
+      "reason": "套餐是组合商品，管理其上下架是重要业务功能。",
+      "apis": [
+        {
+          "path": "/admin/setmeal",
+          "method": "POST",
+          "summary": "save",
+          "test_scenarios": [
+            "正常新增",
+            "关联不存在的分类或菜品",
+            "必填字段缺失",
+            "权限校验",
+            "价格/库存无效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/setmeal",
+          "method": "PUT",
+          "summary": "update",
+          "test_scenarios": [
+            "正常修改",
+            "修改不存在的套餐",
+            "修改后关联的分类或菜品不存在",
+            "权限校验"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/setmeal",
+          "method": "DELETE",
+          "summary": "delete",
+          "test_scenarios": [
+            "正常删除",
+            "删除不存在的套餐",
+            "删除关联了订单的套餐",
+            "权限校验"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/setmeal/page",
+          "method": "GET",
+          "summary": "page",
+          "test_scenarios": [
+            "正常分页",
+            "条件搜索",
+            "无数据",
+            "页码无效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/setmeal/status/{status}",
+          "method": "POST",
+          "summary": "startOrStop",
+          "test_scenarios": [
+            "正常起售",
+            "正常停售",
+            "操作不存在的套餐",
+            "状态值无效",
+            "停售有关联订单的套餐"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/setmeal/{id}",
+          "method": "GET",
+          "summary": "getById",
+          "test_scenarios": [
+            "正常查询",
+            "查询不存在的ID"
+          ],
+          "priority": "P1"
+        }
+      ],
+      "estimated_cases": 24,
+      "dependencies": [
+        "需要先登录获取token",
+        "依赖分类管理、菜品管理模块"
+      ]
+    },
+    {
+      "name": "订单管理",
+      "priority": "P0",
+      "reason": "订单是核心业务流程，接单、配送、完成等状态流转直接影响营收和用户体验。",
+      "apis": [
+        {
+          "path": "/admin/order/conditionSearch",
+          "method": "GET",
+          "summary": "conditionSearch",
+          "test_scenarios": [
+            "正常条件搜索",
+            "无条件搜索",
+            "搜索无结果",
+            "参数格式错误"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/admin/order/details/{id}",
+          "method": "GET",
+          "summary": "details",
+          "test_scenarios": [
+            "正常查看订单详情",
+            "查看不存在的订单ID"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/admin/order/confirm",
+          "method": "PUT",
+          "summary": "confirm",
+          "test_scenarios": [
+            "正常接单",
+            "接单不存在的订单",
+            "接单已取消/已完成的订单",
+            "权限校验"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/admin/order/delivery/{id}",
+          "method": "PUT",
+          "summary": "delivery",
+          "test_scenarios": [
+            "正常配送",
+            "配送不存在的订单",
+            "配送非已接单状态的订单"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/admin/order/complete/{id}",
+          "method": "PUT",
+          "summary": "complete",
+          "test_scenarios": [
+            "正常完成",
+            "完成不存在的订单",
+            "完成非配送中状态的订单"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/admin/order/cancel",
+          "method": "PUT",
+          "summary": "cancel",
+          "test_scenarios": [
+            "正常取消",
+            "取消不存在的订单",
+            "取消非待接单状态的订单",
+            "权限校验"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/admin/order/rejection",
+          "method": "PUT",
+          "summary": "rejection",
+          "test_scenarios": [
+            "正常拒单",
+            "拒单不存在的订单",
+            "拒单非待接单状态的订单"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/admin/order/statistics",
+          "method": "GET",
+          "summary": "statistics",
+          "test_scenarios": [
+            "正常查询统计",
+            "查询无数据"
+          ],
+          "priority": "P0"
+        }
+      ],
+      "estimated_cases": 30,
+      "dependencies": [
+        "需要先登录获取token",
+        "依赖菜品、套餐模块（订单数据关联）"
+      ]
+    },
+    {
+      "name": "店铺管理",
+      "priority": "P0",
+      "reason": "店铺营业状态是全局开关，直接影响所有业务（如下单），必须优先保障。",
+      "apis": [
+        {
+          "path": "/admin/shop/status",
+          "method": "GET",
+          "summary": "获取店铺的营业状态",
+          "test_scenarios": [
+            "正常获取营业状态"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/admin/shop/{status}",
+          "method": "PUT",
+          "summary": "设置店铺的营业状态",
+          "test_scenarios": [
+            "正常设置营业",
+            "正常设置打烊",
+            "设置无效状态值"
+          ],
+          "priority": "P0"
+        }
+      ],
+      "estimated_cases": 5,
+      "dependencies": [
+        "需要先登录获取token"
+      ]
+    },
+    {
+      "name": "报表与工作台",
+      "priority": "P2",
+      "reason": "报表和工作台为辅助决策和信息展示功能，不影响核心交易流程。",
+      "apis": [
+        {
+          "path": "/admin/report/ordersStatistics",
+          "method": "GET",
+          "summary": "orderStatistics",
+          "test_scenarios": [
+            "正常查询",
+            "查询无数据"
+          ],
+          "priority": "P2"
+        },
+        {
+          "path": "/admin/report/top10",
+          "method": "GET",
+          "summary": "top10",
+          "test_scenarios": [
+            "正常查询销量排行",
+            "查询无数据"
+          ],
+          "priority": "P2"
+        },
+        {
+          "path": "/admin/report/turnoverStatistics",
+          "method": "GET",
+          "summary": "turnoverStatistics",
+          "test_scenarios": [
+            "正常查询",
+            "查询无数据"
+          ],
+          "priority": "P2"
+        },
+        {
+          "path": "/admin/report/userStatistics",
+          "method": "GET",
+          "summary": "userStatistics",
+          "test_scenarios": [
+            "正常查询",
+            "查询无数据"
+          ],
+          "priority": "P2"
+        },
+        {
+          "path": "/admin/workspace/businessData",
+          "method": "GET",
+          "summary": "businessData",
+          "test_scenarios": [
+            "正常获取今日营业数据"
+          ],
+          "priority": "P2"
+        },
+        {
+          "path": "/admin/workspace/overviewDishes",
+          "method": "GET",
+          "summary": "dishOverView",
+          "test_scenarios": [
+            "正常获取菜品总览"
+          ],
+          "priority": "P2"
+        },
+        {
+          "path": "/admin/workspace/overviewOrders",
+          "method": "GET",
+          "summary": "orderOverView",
+          "test_scenarios": [
+            "正常获取订单总览"
+          ],
+          "priority": "P2"
+        },
+        {
+          "path": "/admin/workspace/overviewSetmeals",
+          "method": "GET",
+          "summary": "setmealOverView",
+          "test_scenarios": [
+            "正常获取套餐总览"
+          ],
+          "priority": "P2"
+        }
+      ],
+      "estimated_cases": 12,
+      "dependencies": [
+        "需要先登录获取token"
+      ]
+    },
+    {
+      "name": "用户管理",
+      "priority": "P0",
+      "reason": "C端用户登录是进行下单等操作的前提，属于核心入口。",
+      "apis": [
+        {
+          "path": "/user/user/login",
+          "method": "POST",
+          "summary": "微信登录",
+          "test_scenarios": [
+            "正常登录",
+            "缺少必要参数",
+            "模拟登录凭证无效"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/user/logout",
+          "method": "POST",
+          "summary": "退出登录",
+          "test_scenarios": [
+            "正常退出",
+            "未携带token退出"
+          ],
+          "priority": "P1"
+        }
+      ],
+      "estimated_cases": 5,
+      "dependencies": []
+    },
+    {
+      "name": "地址簿管理",
+      "priority": "P1",
+      "reason": "收货地址是用户下单的必要信息，属于重要功能。",
+      "apis": [
+        {
+          "path": "/user/addressBook",
+          "method": "POST",
+          "summary": "save",
+          "test_scenarios": [
+            "正常新增地址",
+            "新增默认地址",
+            "地址数量达到上限",
+            "必填字段缺失"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/user/addressBook",
+          "method": "PUT",
+          "summary": "update",
+          "test_scenarios": [
+            "正常修改地址",
+            "修改不存在的地址",
+            "修改其他用户的地址"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/user/addressBook",
+          "method": "DELETE",
+          "summary": "deleteById",
+          "test_scenarios": [
+            "正常删除地址",
+            "删除不存在的地址",
+            "删除其他用户的地址",
+            "删除默认地址"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/user/addressBook/default",
+          "method": "GET",
+          "summary": "getDefault",
+          "test_scenarios": [
+            "正常获取默认地址",
+            "无默认地址"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/user/addressBook/default",
+          "method": "PUT",
+          "summary": "setDefault",
+          "test_scenarios": [
+            "正常设置默认地址",
+            "设置不存在的地址为默认",
+            "设置其他用户的地址为默认"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/user/addressBook/list",
+          "method": "GET",
+          "summary": "list",
+          "test_scenarios": [
+            "正常获取地址列表",
+            "列表为空"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/user/addressBook/{id}",
+          "method": "GET",
+          "summary": "getById",
+          "test_scenarios": [
+            "正常查询地址",
+            "查询不存在的地址",
+            "查询其他用户的地址"
+          ],
+          "priority": "P1"
+        }
+      ],
+      "estimated_cases": 25,
+      "dependencies": [
+        "需要先通过用户登录获取token"
+      ]
+    },
+    {
+      "name": "商品浏览",
+      "priority": "P1",
+      "reason": "浏览菜品和套餐是用户下单的基础操作。",
+      "apis": [
+        {
+          "path": "/user/category/list",
+          "method": "GET",
+          "summary": "查询分类",
+          "test_scenarios": [
+            "正常查询所有分类",
+            "查询无数据"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/user/dish/list",
+          "method": "GET",
+          "summary": "list",
+          "test_scenarios": [
+            "正常查询菜品列表",
+            "按分类查询",
+            "查询无数据",
+            "分类ID无效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/user/setmeal/list",
+          "method": "GET",
+          "summary": "根据分类id查询套餐",
+          "test_scenarios": [
+            "正常查询套餐列表",
+            "按分类查询",
+            "查询无数据",
+            "分类ID无效"
+          ],
+          "priority": "P1"
+        },
+        {
+          "path": "/user/setmeal/dish/{id}",
+          "method": "GET",
+          "summary": "根据套餐id查询包含的菜品列表",
+          "test_scenarios": [
+            "正常查询套餐内菜品",
+            "查询不存在的套餐ID"
+          ],
+          "priority": "P1"
+        }
+      ],
+      "estimated_cases": 14,
+      "dependencies": [
+        "需要先通过用户登录获取token",
+        "依赖后台分类、菜品、套餐数据"
+      ]
+    },
+    {
+      "name": "购物车管理",
+      "priority": "P0",
+      "reason": "购物车是下单前的关键环节，直接影响下单流程。",
+      "apis": [
+        {
+          "path": "/user/shoppingCart/add",
+          "method": "POST",
+          "summary": "add",
+          "test_scenarios": [
+            "正常添加菜品",
+            "正常添加套餐",
+            "添加商品到其他用户购物车",
+            "添加下架或停售的商品",
+            "库存不足"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/shoppingCart/sub",
+          "method": "POST",
+          "summary": "sub",
+          "test_scenarios": [
+            "正常减少商品数量",
+            "减少不存在的商品",
+            "数量减至0",
+            "操作其他用户购物车"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/shoppingCart/clean",
+          "method": "DELETE",
+          "summary": "clean",
+          "test_scenarios": [
+            "正常清空购物车",
+            "清空其他用户购物车"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/shoppingCart/list",
+          "method": "GET",
+          "summary": "list",
+          "test_scenarios": [
+            "正常获取购物车列表",
+            "购物车为空"
+          ],
+          "priority": "P0"
+        }
+      ],
+      "estimated_cases": 16,
+      "dependencies": [
+        "需要先通过用户登录获取token"
+      ]
+    },
+    {
+      "name": "用户订单管理",
+      "priority": "P0",
+      "reason": "用户的下单、支付、查看订单是完整的交易闭环，是核心流程。",
+      "apis": [
+        {
+          "path": "/user/order/submit",
+          "method": "POST",
+          "summary": "submit",
+          "test_scenarios": [
+            "正常提交订单",
+            "购物车为空提交",
+            "缺少地址信息",
+            "商品下架或库存不足",
+            "店铺打烊"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/order/payment",
+          "method": "PUT",
+          "summary": "payment",
+          "test_scenarios": [
+            "正常支付成功",
+            "支付不存在的订单",
+            "支付非待支付订单",
+            "模拟支付失败"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/order/cancel/{id}",
+          "method": "PUT",
+          "summary": "cancel",
+          "test_scenarios": [
+            "正常取消订单",
+            "取消不存在的订单",
+            "取消非待支付订单",
+            "取消其他用户的订单"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/order/historyOrders",
+          "method": "GET",
+          "summary": "page",
+          "test_scenarios": [
+            "正常分页查询历史订单",
+            "无历史订单",
+            "页码无效"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/order/orderDetail/{id}",
+          "method": "GET",
+          "summary": "details",
+          "test_scenarios": [
+            "正常查看订单详情",
+            "查看不存在的订单",
+            "查看其他用户的订单"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/order/repetition/{id}",
+          "method": "POST",
+          "summary": "repetition",
+          "test_scenarios": [
+            "正常再来一单",
+            "对不存在的订单再来一单",
+            "商品状态变化影响下单"
+          ],
+          "priority": "P0"
+        },
+        {
+          "path": "/user/order/reminder/{id}",
+          "method": "GET",
+          "summary": "reminder",
+          "test_scenarios": [
+            "正常催单",
+            "催不存在的订单",
+            "催非配送中的订单"
+          ],
+          "priority": "P0"
+        }
+      ],
+      "estimated_cases": 30,
+      "dependencies": [
+        "需要先通过用户登录获取token",
+        "依赖购物车、地址簿、商品模块"
+      ]
+    },
+    {
+      "name": "店铺状态查询",
+      "priority": "P1",
+      "reason": "C端用户需查看店铺是否营业，以决定是否下单。",
+      "apis": [
+        {
+          "path": "/user/shop/status",
+          "method": "GET",
+          "summary": "获取店铺的营业状态",
+          "test_scenarios": [
+            "正常获取营业状态"
+          ],
+          "priority": "P1"
+        }
+      ],
+      "estimated_cases": 2,
+      "dependencies": []
+    }
+  ],
+  "execution_order": [
+    "员工管理",
+    "店铺管理",
+    "分类管理",
+    "菜品管理",
+    "套餐管理",
+    "用户管理",
+    "地址簿管理",
+    "商品浏览",
+    "购物车管理",
+    "订单管理",
+    "用户订单管理",
+    "店铺状态查询",
+    "报表与工作台"
+  ],
+  "total_estimated_cases": 244
+}

@@ -1,0 +1,414 @@
+suite: 员工管理模块
+base_url: "{{base_url}}"
+cases:
+  # 员工登录接口测试
+  - name: 员工登录_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /admin/employee/login
+      headers:
+        Content-Type: application/json
+      body:
+        phone: "13800138000"
+        password: "Admin@1234"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM employee WHERE phone = '13800138000'"
+        expect_not_empty: true
+
+  - name: 员工登录_密码错误
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee/login
+      headers:
+        Content-Type: application/json
+      body:
+        phone: "13800138000"
+        password: "WrongPassword123"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 员工登录_手机号不存在
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee/login
+      headers:
+        Content-Type: application/json
+      body:
+        phone: "13999999999"
+        password: "Admin@1234"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # 员工退出接口测试
+  - name: 员工退出_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /admin/employee/logout
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 员工退出_无效Token
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee/logout
+      headers:
+        Content-Type: application/json
+        token: "invalid_token_value"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 员工退出_无Token
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee/logout
+      headers:
+        Content-Type: application/json
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # 新增员工接口测试
+  - name: 新增员工_正常流程_完整参数
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        name: "测试员工"
+        phone: "13800000001"
+        password: "123456"
+        role_id: 2
+        status: 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM employee WHERE phone = '13800000001'"
+        expect_not_empty: true
+
+  - name: 新增员工_必填参数缺失_手机号为空
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        name: "测试员工"
+        phone: ""
+        password: "123456"
+        role_id: 2
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 新增员工_重复手机号
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        name: "重复员工"
+        phone: "13800000001"  # 使用上面用例已创建的手机号
+        password: "123456"
+        role_id: 2
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # 编辑员工信息接口测试
+  - name: 编辑员工信息_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1  # 假设存在ID为1的员工
+        name: "编辑后的员工"
+        phone: "13800000001"
+        role_id: 2
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM employee WHERE id = 1 AND name = '编辑后的员工'"
+        expect_not_empty: true
+
+  - name: 编辑员工信息_员工ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 999999  # 不存在的ID
+        name: "编辑测试"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 编辑员工信息_参数类型错误_手机号传数字
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        phone: 13800000001  # 应该是字符串
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # 员工分页查询接口测试
+  - name: 员工分页查询_正常流程_默认参数
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/employee/page
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data.total: ">0"
+    db_check:
+      - sql: "SELECT COUNT(*) FROM employee WHERE status != 2"
+        expect_not_empty: true
+
+  - name: 员工分页查询_参数类型错误_页码传字符串
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/employee/page?pageNum=abc&pageSize=10
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 员工分页查询_空结果集_手机号模糊查询不存在
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/employee/page?phone=13999999999
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data.total: 0
+
+  # 启用禁用员工账号接口测试
+  - name: 启用禁用员工账号_正常流程_禁用
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /admin/employee/status/0
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1  # 假设存在且状态为启用的员工
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM employee WHERE id = 1 AND status = 0"
+        expect_not_empty: true
+
+  - name: 启用禁用员工账号_无效状态码
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee/status/99
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 启用禁用员工账号_员工ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee/status/1
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 999999
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # 根据id查询员工接口测试
+  - name: 根据id查询员工_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/employee/1
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data.id: 1
+    db_check:
+      - sql: "SELECT * FROM employee WHERE id = 1"
+        expect_not_empty: true
+
+  - name: 根据id查询员工_员工ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/employee/999999
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        data: null
+
+  - name: 根据id查询员工_ID格式错误
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/employee/abc
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 400  # 或 200, 视具体框架错误处理而定
+
+  # P2/P3 级别边界与关联场景补充
+  - name: 新增员工_姓名长度超限
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        name: "这是一段超过数据库允许最大长度的员工姓名测试数据，用于验证系统对姓名字段长度的校验机制是否正常工作"
+        phone: "13800000099"
+        password: "123456"
+        role_id: 2
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 员工分页查询_页码为0或负数
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/employee/page?pageNum=-1&pageSize=10
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 新增员工_普通用户Token无权操作
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        name: "无权新增"
+        phone: "13800000100"
+        password: "123456"
+        role_id: 2
+    assert:
+      status_code: 200
+      json:
+        code: 0

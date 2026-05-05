@@ -1,0 +1,125 @@
+suite: 外卖下单完整链路
+base_url: "http://124.222.42.246:8080"
+
+chain:
+  # Step 1: 管理员登录
+  - name: 管理员登录
+    request:
+      method: POST
+      path: /admin/employee/login
+      headers:
+        Content-Type: application/json
+      body:
+        username: "admin"
+        password: "123456"
+    extract:
+      admin_token: "data.token"
+    assert:
+      json:
+        code: 1
+
+  # Step 2: 查询菜品
+  - name: 查询菜品列表
+    request:
+      method: GET
+      path: /admin/dish/page
+      headers:
+        token: "{{admin_token}}"
+      params:
+        page: 1
+        pageSize: 10
+    extract:
+      dish_id: "data.records[0].id"
+      dish_name: "data.records[0].name"
+      dish_price: "data.records[0].price"
+    assert:
+      json:
+        code: 1
+
+  # Step 3: 查询分类
+  - name: 查询分类列表
+    request:
+      method: GET
+      path: /admin/category/list
+      headers:
+        token: "{{admin_token}}"
+    extract:
+      category_id: "data[0].id"
+    assert:
+      json:
+        code: 1
+
+  # Step 4: 查询订单列表
+  - name: 查询订单列表
+    request:
+      method: GET
+      path: /admin/order/conditionSearch
+      headers:
+        token: "{{admin_token}}"
+      params:
+        page: 1
+        pageSize: 10
+    extract:
+      order_count: "data.total"
+    assert:
+      json:
+        code: 1
+
+  # Step 5: 查询工作台数据
+  - name: 查询工作台概览
+    request:
+      method: GET
+      path: /admin/workspace/businessData
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      json:
+        code: 1
+
+  # Step 6: 查询报表数据
+  - name: 查询营业额统计
+    request:
+      method: GET
+      path: /admin/report/turnoverStatistics
+      headers:
+        token: "{{admin_token}}"
+      params:
+        begin: "2026-01-01"
+        end: "2026-12-31"
+    assert:
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT COUNT(*) as cnt FROM orders WHERE order_time >= '2026-01-01'"
+        expect_not_empty: true
+
+  # Step 7: 查询套餐
+  - name: 查询套餐列表
+    request:
+      method: GET
+      path: /admin/setmeal/page
+      headers:
+        token: "{{admin_token}}"
+      params:
+        page: 1
+        pageSize: 10
+    extract:
+      setmeal_id: "data.records[0].id"
+    assert:
+      json:
+        code: 1
+
+  # Step 8: 查询套餐详情
+  - name: 查询套餐详情
+    request:
+      method: GET
+      path: /admin/setmeal/{{setmeal_id}}
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM setmeal WHERE id = '{{setmeal_id}}'"
+        expect_not_empty: true
+        expect_field_not_null: ["id", "name", "price"]

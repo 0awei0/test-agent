@@ -1,0 +1,367 @@
+suite: 分类管理模块
+base_url: "{{base_url}}"
+cases:
+  # POST /admin/category 新增分类
+  - name: 新增分类_正常创建
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /admin/category
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        name: "测试分类"
+        type: "food"
+        parent_id: null
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM category WHERE name = '测试分类'"
+        expect_not_empty: true
+
+  - name: 新增分类_名称为空
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/category
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        name: ""
+        type: "food"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "名称不能为空"
+
+  - name: 新增分类_重复名称
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/category
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        name: "测试分类"
+        type: "food"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "分类名称已存在"
+
+  # PUT /admin/category 修改分类
+  - name: 修改分类_正常修改
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/category
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        name: "修改后分类"
+        type: "drink"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM category WHERE id = 1"
+        expect_not_empty: true
+
+  - name: 修改分类_ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/category
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 99999
+        name: "无效ID分类"
+        type: "food"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "分类不存在"
+
+  - name: 修改分类_名称重复
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/category
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        name: "测试分类"
+        type: "food"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "分类名称已存在"
+
+  # DELETE /admin/category 删除分类
+  - name: 删除分类_正常删除
+    priority: P0
+    marker: smoke
+    request:
+      method: DELETE
+      path: /admin/category
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM category WHERE id = 1"
+        expect_empty: true
+
+  - name: 删除分类_ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: DELETE
+      path: /admin/category
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 99999
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "分类不存在"
+
+  - name: 删除分类_有关联数据
+    priority: P2
+    marker: regression
+    request:
+      method: DELETE
+      path: /admin/category
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 2  # 假设ID 2有关联子分类
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "分类下存在关联数据，无法删除"
+
+  # GET /admin/category/list 根据类型查询分类
+  - name: 查询分类列表_正常查询
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/category/list
+      headers:
+        token: "{{admin_token}}"
+      params:
+        type: "food"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data: "*"
+
+  - name: 查询分类列表_类型无效
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/category/list
+      headers:
+        token: "{{admin_token}}"
+      params:
+        type: "invalid"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "类型无效"
+
+  - name: 查询分类列表_无匹配数据
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/category/list
+      headers:
+        token: "{{admin_token}}"
+      params:
+        type: "nonexistent"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data: []
+
+  # GET /admin/category/page 分类分页查询
+  - name: 分类分页查询_正常分页
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/category/page
+      headers:
+        token: "{{admin_token}}"
+      params:
+        page: 1
+        size: 10
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          total: "*"
+          list: "*"
+
+  - name: 分类分页查询_页码无效
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/category/page
+      headers:
+        token: "{{admin_token}}"
+      params:
+        page: 0
+        size: 10
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "页码无效"
+
+  - name: 分类分页查询_页码超出范围
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/category/page
+      headers:
+        token: "{{admin_token}}"
+      params:
+        page: 10000
+        size: 10
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          list: []
+
+  # POST /admin/category/status/{status} 启用禁用分类
+  - name: 启用分类_正常启用
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /admin/category/status/enable
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM category WHERE id = 1 AND status = 'enable'"
+        expect_not_empty: true
+
+  - name: 禁用分类_正常禁用
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /admin/category/status/disable
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM category WHERE id = 1 AND status = 'disable'"
+        expect_not_empty: true
+
+  - name: 启用禁用分类_ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/category/status/enable
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 99999
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "分类不存在"
+
+  - name: 启用禁用分类_状态值无效
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/category/status/invalid
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+    assert:
+      status_code: 404
+      json:
+        code: 0
+        message: "状态值无效"
+
+  - name: 启用禁用分类_无token
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /admin/category/status/enable
+      headers:
+        Content-Type: application/json
+      body:
+        id: 1
+    assert:
+      status_code: 401
+      json:
+        code: 0
+        message: "未授权"

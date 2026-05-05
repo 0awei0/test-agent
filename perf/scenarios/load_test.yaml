@@ -1,0 +1,76 @@
+suite: 苍穹外卖-负载测试
+base_url: "http://124.222.42.246:8080"
+
+config:
+  users: 50
+  spawn_rate: 10
+  run_time: 60s
+
+login:
+  enabled: true
+  method: POST
+  path: /admin/employee/login
+  headers:
+    Content-Type: application/json
+  body:
+    username: "admin"
+    password: "123456"
+  token_field: "data.token"
+
+scenarios:
+  - name: 员工登录
+    weight: 3
+    use_login: false
+    tasks:
+      - name: 员工登录
+        method: POST
+        path: /admin/employee/login
+        headers:
+          Content-Type: application/json
+        body:
+          username: "admin"
+          password: "123456"
+
+  - name: 分类查询
+    weight: 5
+    tasks:
+      - name: 查询分类列表
+        method: GET
+        path: /admin/category/list
+
+  - name: 菜品查询
+    weight: 5
+    tasks:
+      - name: 菜品分页查询
+        method: GET
+        path: /admin/dish/page
+        params:
+          page: 1
+          pageSize: 10
+
+  - name: 订单查询
+    weight: 3
+    tasks:
+      - name: 订单搜索
+        method: GET
+        path: /admin/order/conditionSearch
+        params:
+          page: 1
+          pageSize: 10
+
+  - name: 套餐查询
+    weight: 4
+    tasks:
+      - name: 套餐分页查询
+        method: GET
+        path: /admin/setmeal/page
+        params:
+          page: 1
+          pageSize: 10
+
+  - name: 店铺状态
+    weight: 2
+    tasks:
+      - name: 获取店铺状态
+        method: GET
+        path: /admin/shop/status

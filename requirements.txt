@@ -1,0 +1,11 @@
+openai-agents
+pytest>=8.0
+pytest-html
+allure-pytest
+requests
+PyYAML
+PyMySQL
+python-dotenv
+Faker
+jsonpath-ng
+loguru

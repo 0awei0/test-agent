@@ -1,0 +1,115 @@
+suite: 用户管理
+base_url: "{{base_url}}"
+cases:
+  - name: 微信登录_正常流程_使用有效授权码和用户信息登录
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: "valid_wx_auth_code_12345"
+        userInfo:
+          nickName: "测试用户"
+          gender: 1
+          language: "zh_CN"
+          city: "北京"
+          province: "北京"
+          country: "中国"
+          avatarUrl: "https://example.com/avatar.jpg"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: "success"
+        data:
+          token: "{{user_token}}"
+          userId: "{{user_id}}"
+
+  - name: 微信登录_异常_未提供授权码code
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        userInfo:
+          nickName: "测试用户"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        msg: "授权码(code)不能为空"
+
+  - name: 微信登录_异常_使用无效或过期的授权码
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: "invalid_or_expired_code"
+        userInfo:
+          nickName: "测试用户"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        msg: "无效的授权码"
+        data: null
+
+  - name: 退出登录_正常流程_使用有效用户token退出
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: "success"
+    db_check:
+      - sql: "SELECT token FROM user WHERE user_id = {{user_id}}"
+        expect_empty: true
+
+  - name: 退出登录_异常_未登录状态下尝试退出_无token
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        msg: "未登录或登录已失效"
+
+  - name: 退出登录_异常_使用无效token退出
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "invalid_token_12345"
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        msg: "未登录或登录已失效"

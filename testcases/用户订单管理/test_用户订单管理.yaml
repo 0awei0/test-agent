@@ -1,0 +1,414 @@
+suite: 用户订单管理
+base_url: "{{base_url}}"
+cases:
+  - name: 提交订单_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /user/order/submit
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        items:
+          - dish_id: 1
+            dish_name: "宫保鸡丁"
+            num: 2
+            price: 3800
+          - dish_id: 2
+            dish_name: "米饭"
+            num: 1
+            price: 200
+        remark: "少放辣"
+        address_id: 1001
+        shop_id: 101
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          order_id: "check_is_not_null"
+          total_price: 7800
+    db_check:
+      - sql: "SELECT * FROM user_order WHERE user_id = {{user_id}} AND shop_id = 101 AND status = 0 ORDER BY create_time DESC LIMIT 1"
+        expect_not_empty: true
+        expect_columns:
+          total_price: 7800
+          remark: "少放辣"
+
+  - name: 提交订单_缺少必要参数items
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /user/order/submit
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        remark: "无菜品"
+        address_id: 1001
+        shop_id: 101
+    assert:
+      status_code: 400
+      json:
+        code: 0
+        message: "菜品列表不能为空"
+
+  - name: 提交订单_库存不足
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /user/order/submit
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        items:
+          - dish_id: 1
+            dish_name: "宫保鸡丁"
+            num: 1000  # 假设库存只有10
+            price: 3800
+        address_id: 1001
+        shop_id: 101
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "库存不足"
+
+  - name: 提交订单_无token或token无效
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /user/order/submit
+      headers:
+        Content-Type: application/json
+        token: "invalid_token"
+      body:
+        items:
+          - dish_id: 1
+            num: 1
+        address_id: 1001
+        shop_id: 101
+    assert:
+      status_code: 401
+      json:
+        code: 0
+        message: "未登录或登录已过期"
+
+  - name: 订单支付_正常支付
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /user/order/payment
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        order_id: "{{pending_order_id}}"
+        payment_method: "wechat"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          order_id: "{{pending_order_id}}"
+          status: 1
+    db_check:
+      - sql: "SELECT * FROM user_order WHERE id = {{pending_order_id}}"
+        expect_not_empty: true
+        expect_columns:
+          status: 1
+          payment_method: "wechat"
+
+  - name: 订单支付_订单不存在
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /user/order/payment
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        order_id: 99999999
+        payment_method: "wechat"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "订单不存在"
+
+  - name: 订单支付_支付超时订单已自动取消
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /user/order/payment
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        order_id: "{{cancelled_order_id}}" # 假设这是一个已超时取消的订单ID
+        payment_method: "wechat"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "订单已取消，无法支付"
+
+  - name: 取消订单_正常取消未支付订单
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /user/order/cancel/{{pending_order_id}}
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          status: -1
+    db_check:
+      - sql: "SELECT * FROM user_order WHERE id = {{pending_order_id}}"
+        expect_not_empty: true
+        expect_columns:
+          status: -1
+
+  - name: 取消订单_已支付订单无法取消
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /user/order/cancel/{{paid_order_id}} # 假设这是一个已支付的订单ID
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "订单已支付，无法取消"
+
+  - name: 取消订单_已使用/完成订单无法取消
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /user/order/cancel/{{completed_order_id}} # 假设这是一个已完成的订单ID
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "订单已完成，无法取消"
+
+  - name: 查询历史订单_正常分页查询
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /user/order/historyOrders
+      headers:
+        token: "{{user_token}}"
+      query:
+        pageNum: 1
+        pageSize: 10
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          total: "check_is_number"
+          list: "check_is_array"
+
+  - name: 查询历史订单_页码为0或负数
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /user/order/historyOrders
+      headers:
+        token: "{{user_token}}"
+      query:
+        pageNum: 0
+        pageSize: 10
+    assert:
+      status_code: 400
+      json:
+        code: 0
+        message: "页码必须大于0"
+
+  - name: 查询历史订单_无订单历史
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /user/order/historyOrders
+      headers:
+        token: "{{user_token}}"
+      query:
+        pageNum: 1
+        pageSize: 10
+        status: 100 # 假设100是无效状态
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          total: 0
+          list: []
+
+  - name: 获取订单详情_正常获取
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /user/order/orderDetail/{{valid_order_id}} # 假设这是一个存在的订单ID
+      headers:
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          id: "{{valid_order_id}}"
+          items: "check_is_array"
+
+  - name: 获取订单详情_订单ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /user/order/orderDetail/99999999
+      headers:
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "订单不存在"
+
+  - name: 获取订单详情_获取其他用户订单
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /user/order/orderDetail/{{other_user_order_id}} # 假设这是另一个用户订单的ID
+      headers:
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "无权查看该订单"
+
+  - name: 重复下单_正常重复
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /user/order/repetition/{{completed_order_id}} # 假设这是一个已完成的订单ID
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          new_order_id: "check_is_not_null"
+    db_check:
+      - sql: "SELECT * FROM user_order WHERE id = {{completed_order_id}}"
+        expect_not_empty: true
+        expect_columns:
+          repeat_count: 1
+      - sql: "SELECT * FROM user_order WHERE user_id = {{user_id}} AND id != {{completed_order_id}} ORDER BY create_time DESC LIMIT 1"
+        expect_not_empty: true
+
+  - name: 重复下单_原订单不存在
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /user/order/repetition/99999999
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "原订单不存在"
+
+  - name: 重复下单_原订单状态为已取消
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /user/order/repetition/{{cancelled_order_id}} # 假设这是一个已取消订单的ID
+      headers:
+        Content-Type: application/json
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "订单已取消，无法重复下单"
+
+  - name: 取餐提醒_正常提醒
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /user/order/reminder/{{valid_order_id}} # 假设这是一个有效的、等待取餐的订单ID
+      headers:
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        message: "提醒已发送"
+
+  - name: 取餐提醒_订单已完成无需提醒
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /user/order/reminder/{{completed_order_id}} # 假设这是一个已完成订单的ID
+      headers:
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "订单已完成，无需提醒"
+
+  - name: 取餐提醒_重复提醒同一订单
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /user/order/reminder/{{valid_order_id}} # 同一个订单，短时间内第二次提醒
+      headers:
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        message: "短时间内请勿重复提醒"

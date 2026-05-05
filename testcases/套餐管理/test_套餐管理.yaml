@@ -1,0 +1,370 @@
+suite: 套餐管理模块
+base_url: "{{base_url}}"
+cases:
+  # POST /admin/setmeal save
+  - name: 创建套餐_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /admin/setmeal/save
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        name: 测试套餐1
+        categoryId: 100
+        price: 3800
+        status: 0
+        description: 测试套餐描述
+        image: test.jpg
+        dishList:
+          - dishId: 1
+            name: 菜品1
+            price: 1800
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+
+  - name: 创建套餐_名称缺失
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/setmeal/save
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        categoryId: 100
+        price: 3800
+        status: 0
+        description: 测试套餐描述
+        image: test.jpg
+        dishList:
+          - dishId: 1
+            name: 菜品1
+            price: 1800
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 创建套餐_菜品列表为空
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /admin/setmeal/save
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        name: 空菜品套餐
+        categoryId: 100
+        price: 3800
+        status: 0
+        description: 测试套餐描述
+        image: test.jpg
+        dishList: []
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # PUT /admin/setmeal update
+  - name: 更新套餐_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/setmeal/update
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        name: 更新后套餐名
+        categoryId: 100
+        price: 4200
+        status: 1
+        description: 更新后的描述
+        image: new.jpg
+        dishList:
+          - dishId: 2
+            name: 菜品2
+            price: 2200
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+
+  - name: 更新套餐_套餐ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/setmeal/update
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 999999
+        name: 不存在的套餐
+        categoryId: 100
+        price: 4200
+        status: 1
+        description: 测试
+        image: test.jpg
+        dishList:
+          - dishId: 1
+            name: 菜品1
+            price: 1800
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 更新套餐_修改菜品列表
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/setmeal/update
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        name: 测试套餐1
+        categoryId: 100
+        price: 5000
+        status: 0
+        description: 测试套餐描述
+        image: test.jpg
+        dishList:
+          - dishId: 1
+            name: 菜品1
+            price: 1800
+          - dishId: 3
+            name: 菜品3
+            price: 3200
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+
+  # DELETE /admin/setmeal delete
+  - name: 删除套餐_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: DELETE
+      path: /admin/setmeal/delete
+      headers:
+        token: "{{admin_token}}"
+      body:
+        ids:
+          - 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+
+  - name: 删除套餐_套餐ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: DELETE
+      path: /admin/setmeal/delete
+      headers:
+        token: "{{admin_token}}"
+      body:
+        ids:
+          - 999999
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+
+  - name: 删除套餐_删除已起售套餐
+    priority: P2
+    marker: regression
+    request:
+      method: DELETE
+      path: /admin/setmeal/delete
+      headers:
+        token: "{{admin_token}}"
+      body:
+        ids:
+          - 2
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        msg: failed
+
+  # GET /admin/setmeal/page page
+  - name: 分页查询套餐_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/setmeal/page
+      headers:
+        token: "{{admin_token}}"
+      params:
+        page: 1
+        pageSize: 10
+        name: 测试套餐
+        status: 1
+        categoryId: 100
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          total: 1
+          records: [any]
+    db_check:
+      - sql: "SELECT COUNT(*) FROM setmeal WHERE status = 1 AND category_id = 100"
+        expect_not_empty: true
+
+  - name: 分页查询套餐_无效页码
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/setmeal/page
+      headers:
+        token: "{{admin_token}}"
+      params:
+        page: -1
+        pageSize: 10
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 分页查询套餐_查询不存在的套餐名
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/setmeal/page
+      headers:
+        token: "{{admin_token}}"
+      params:
+        page: 1
+        pageSize: 10
+        name: 不存在的套餐名称
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          total: 0
+          records: []
+
+  # POST /admin/setmeal/status/{status} startOrStop
+  - name: 起售套餐_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /admin/setmeal/status/1
+      headers:
+        token: "{{admin_token}}"
+      body:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+
+  - name: 停售套餐_套餐ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /admin/setmeal/status/0
+      headers:
+        token: "{{admin_token}}"
+      body:
+        id: 999999
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 起售套餐_套餐已处于该状态
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /admin/setmeal/status/1
+      headers:
+        token: "{{admin_token}}"
+      body:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+
+  # GET /admin/setmeal/{id} getById
+  - name: 查询套餐详情_正常流程
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/setmeal/1
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          id: 1
+          name: [any]
+          categoryId: [any]
+          price: [any]
+    db_check:
+      - sql: "SELECT id FROM setmeal WHERE id = 1 AND deleted = 0"
+        expect_not_empty: true
+
+  - name: 查询套餐详情_套餐ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/setmeal/999999
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data: null
+
+  - name: 查询套餐详情_使用无效ID格式
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/setmeal/abc
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0

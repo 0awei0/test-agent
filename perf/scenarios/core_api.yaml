@@ -1,0 +1,59 @@
+suite: 苍穹外卖-核心接口压测
+base_url: "http://124.222.42.246:8080"
+
+config:
+  users: 20
+  spawn_rate: 5
+  run_time: 30s
+
+login:
+  enabled: true
+  method: POST
+  path: /admin/employee/login
+  headers:
+    Content-Type: application/json
+  body:
+    username: "admin"
+    password: "123456"
+  token_field: "data.token"
+
+scenarios:
+  - name: 员工登录
+    weight: 3
+    use_login: false
+    tasks:
+      - name: 员工登录
+        method: POST
+        path: /admin/employee/login
+        headers:
+          Content-Type: application/json
+        body:
+          username: "admin"
+          password: "123456"
+
+  - name: 分类查询
+    weight: 5
+    tasks:
+      - name: 查询分类列表
+        method: GET
+        path: /admin/category/list
+
+  - name: 菜品查询
+    weight: 5
+    tasks:
+      - name: 菜品分页查询
+        method: GET
+        path: /admin/dish/page
+        params:
+          page: 1
+          pageSize: 10
+
+  - name: 订单查询
+    weight: 3
+    tasks:
+      - name: 订单搜索
+        method: GET
+        path: /admin/order/conditionSearch
+        params:
+          page: 1
+          pageSize: 10

@@ -1,0 +1,300 @@
+suite: 购物车管理
+base_url: "{{base_url}}"
+cases:
+  - name: 添加商品到购物车_正常场景
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /user/shoppingCart/add
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        productId: 1001
+        productCount: 2
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT * FROM user_shopping_cart WHERE user_id = (SELECT id FROM user WHERE token = '{{user_token}}') AND product_id = 1001"
+        expect_not_empty: true
+        expect_row:
+          product_id: 1001
+          product_count: 2
+
+  - name: 添加商品到购物车_商品已存在时数量累加
+    priority: P0
+    marker: regression
+    request:
+      method: POST
+      path: /user/shoppingCart/add
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        productId: 1001
+        productCount: 3
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT product_count FROM user_shopping_cart WHERE user_id = (SELECT id FROM user WHERE token = '{{user_token}}') AND product_id = 1001"
+        expect_row:
+          product_count: 5  # 2 + 3
+
+  - name: 添加商品到购物车_商品不存在
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /user/shoppingCart/add
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        productId: 99999
+        productCount: 1
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        msg: 商品不存在
+
+  - name: 添加商品到购物车_库存不足
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /user/shoppingCart/add
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        productId: 1001
+        productCount: 1000  # 假设库存少于1000
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        msg: 库存不足
+
+  - name: 减少购物车商品数量_正常场景
+    priority: P0
+    marker: smoke
+    request:
+      method: POST
+      path: /user/shoppingCart/sub
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        productId: 1001
+        productCount: 2
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT product_count FROM user_shopping_cart WHERE user_id = (SELECT id FROM user WHERE token = '{{user_token}}') AND product_id = 1001"
+        expect_row:
+          product_count: 3  # 5 - 2
+
+  - name: 减少购物车商品数量_减少到0时自动删除
+    priority: P0
+    marker: regression
+    request:
+      method: POST
+      path: /user/shoppingCart/sub
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        productId: 1001
+        productCount: 3
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT * FROM user_shopping_cart WHERE user_id = (SELECT id FROM user WHERE token = '{{user_token}}') AND product_id = 1001"
+        expect_empty: true
+
+  - name: 减少购物车商品数量_商品不在购物车中
+    priority: P1
+    marker: regression
+    request:
+      method: POST
+      path: /user/shoppingCart/sub
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        productId: 1001
+        productCount: 1
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        msg: 商品不在购物车中
+
+  - name: 减少购物车商品数量_减少数量大于现有数量
+    priority: P2
+    marker: regression
+    request:
+      method: POST
+      path: /user/shoppingCart/sub
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+      body:
+        productId: 1002
+        productCount: 10
+    assert:
+      status_code: 200
+      json:
+        code: 0
+        msg: 操作失败
+
+  - name: 清空购物车_正常场景
+    priority: P0
+    marker: smoke
+    request:
+      method: DELETE
+      path: /user/shoppingCart/clean
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT * FROM user_shopping_cart WHERE user_id = (SELECT id FROM user WHERE token = '{{user_token}}')"
+        expect_empty: true
+
+  - name: 清空购物车_购物车已为空
+    priority: P1
+    marker: regression
+    request:
+      method: DELETE
+      path: /user/shoppingCart/clean
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+
+  - name: 清空购物车_无token
+    priority: P2
+    marker: regression
+    request:
+      method: DELETE
+      path: /user/shoppingCart/clean
+      headers:
+        Content-Type: application/json
+    assert:
+      status_code: 401
+      json:
+        code: 0
+        msg: 未授权
+
+  - name: 获取购物车列表_正常场景
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /user/shoppingCart/list
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+      schema: |
+        {
+          "type": "object",
+          "properties": {
+            "data": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "productId": {"type": "integer"},
+                  "productName": {"type": "string"},
+                  "productImage": {"type": "string"},
+                  "productCount": {"type": "integer"},
+                  "productPrice": {"type": "integer"}
+                }
+              }
+            }
+          }
+        }
+
+  - name: 获取购物车列表_购物车为空
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /user/shoppingCart/list
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+        data: []
+
+  - name: 获取购物车列表_无token
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /user/shoppingCart/list
+      headers:
+        Content-Type: application/json
+    assert:
+      status_code: 401
+      json:
+        code: 0
+        msg: 未授权
+
+  - name: 获取购物车列表_验证价格和总价计算
+    priority: P3
+    marker: regression
+    precondition:
+      - 执行：添加商品1001 (price=3800) 数量2
+      - 执行：添加商品1002 (price=5000) 数量3
+    request:
+      method: GET
+      path: /user/shoppingCart/list
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          - productId: 1001
+            productCount: 2
+            productPrice: 3800
+          - productId: 1002
+            productCount: 3
+            productPrice: 5000
+      # 可选：验证响应中计算的总价字段
+      # totalAmount: 22600  # 3800*2 + 5000*3

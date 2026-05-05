@@ -1,0 +1,422 @@
+suite: 订单管理
+base_url: "{{base_url}}"
+cases:
+  # 条件搜索
+  - name: 条件搜索_正常筛选并分页
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/order/conditionSearch
+      headers:
+        token: "{{admin_token}}"
+      body:
+        begin: "2023-01-01 00:00:00"
+        end: "2024-12-31 23:59:59"
+        number: ""
+        phone: ""
+        name: ""
+        beginTime: ""
+        endTime: ""
+        status: 5
+        page: 1
+        pageSize: 10
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+
+  - name: 条件搜索_缺少必填参数begin
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/order/conditionSearch
+      headers:
+        token: "{{admin_token}}"
+      body:
+        begin: ""
+        end: "2024-12-31 23:59:59"
+        number: ""
+        phone: ""
+        name: ""
+        beginTime: ""
+        endTime: ""
+        status: 5
+        page: 1
+        pageSize: 10
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 条件搜索_分页边界每页0条
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/order/conditionSearch
+      headers:
+        token: "{{admin_token}}"
+      body:
+        begin: "2023-01-01 00:00:00"
+        end: "2024-12-31 23:59:59"
+        number: ""
+        phone: ""
+        name: ""
+        beginTime: ""
+        endTime: ""
+        status: 5
+        page: 1
+        pageSize: 0
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  # 订单详情
+  - name: 订单详情_正常查询
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/order/details/1
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+        data: {}
+
+  - name: 订单详情_订单ID不存在
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/order/details/99999999
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 订单详情_订单ID无效字符串
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/order/details/abc
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 400
+
+  # 订单确认（接单）
+  - name: 订单确认_正常接单
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/order/confirm
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT * FROM order WHERE id=1 AND status=2"
+        expect_not_empty: true
+
+  - name: 订单确认_订单非待接单状态
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/confirm
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 订单确认_订单ID缺失
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/confirm
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: ""
+    assert:
+      status_code: 400
+
+  # 订单配送
+  - name: 订单配送_正常发货
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/order/delivery/1
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT * FROM order WHERE id=1 AND status=3"
+        expect_not_empty: true
+
+  - name: 订单配送_订单非待配送状态
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/delivery/1
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 订单配送_订单ID不存在
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/delivery/99999999
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # 订单完成
+  - name: 订单完成_正常完成
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/order/complete/1
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT * FROM order WHERE id=1 AND status=5"
+        expect_not_empty: true
+
+  - name: 订单完成_订单非配送中状态
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/complete/1
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 订单完成_订单ID无效
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/complete/0
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # 订单取消
+  - name: 订单取消_正常取消
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/order/cancel
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        cancellationReason: "客户取消"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT * FROM order WHERE id=1 AND status=6 AND cancellation_reason='客户取消'"
+        expect_not_empty: true
+
+  - name: 订单取消_订单非进行中状态
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/cancel
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        cancellationReason: "无理由"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 订单取消_缺少取消原因
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/cancel
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        cancellationReason: ""
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # 订单拒收
+  - name: 订单拒收_正常拒收
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/order/rejection
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        rejectionReason: "商品损坏"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+    db_check:
+      - sql: "SELECT * FROM order WHERE id=1 AND status=7 AND rejection_reason='商品损坏'"
+        expect_not_empty: true
+
+  - name: 订单拒收_订单非待接单状态
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/rejection
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        rejectionReason: "无理由"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 订单拒收_无拒收原因
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/order/rejection
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        rejectionReason: ""
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  # 订单统计
+  - name: 订单统计_正常统计
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/order/statistics
+      headers:
+        token: "{{admin_token}}"
+      body:
+        begin: "2023-01-01 00:00:00"
+        end: "2024-12-31 23:59:59"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        msg: success
+        data: {}
+
+  - name: 订单统计_无效日期范围
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/order/statistics
+      headers:
+        token: "{{admin_token}}"
+      body:
+        begin: "2024-12-31 23:59:59"
+        end: "2023-01-01 00:00:00"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+
+  - name: 订单统计_空数据范围
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/order/statistics
+      headers:
+        token: "{{admin_token}}"
+      body:
+        begin: ""
+        end: ""
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          totalAmount: 0
+          orderCount: 0
+          validOrderCount: 0

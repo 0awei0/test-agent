@@ -1,0 +1,119 @@
+suite: 店铺管理
+base_url: "{{base_url}}"
+cases:
+  # ==================== GET /admin/shop/status ====================
+  - name: 获取店铺营业状态_正常查询
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/shop/status
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 获取店铺营业状态_无Token查询
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/shop/status
+      headers: {}
+    assert:
+      status_code: 401
+      json:
+        code: -1
+
+  - name: 获取店铺营业状态_使用用户Token查询
+    priority: P2
+    marker: regression
+    request:
+      method: GET
+      path: /admin/shop/status
+      headers:
+        token: "{{user_token}}"
+    assert:
+      status_code: 403
+      json:
+        code: -1
+
+  # ==================== PUT /admin/shop/{status} ====================
+  - name: 设置店铺营业状态_切换为打烊状态
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/shop/close
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 设置店铺营业状态_切换为营业状态
+    priority: P0
+    marker: smoke
+    request:
+      method: PUT
+      path: /admin/shop/open
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 设置店铺营业状态_无权限操作
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/shop/close
+      headers: {}
+    assert:
+      status_code: 401
+      json:
+        code: -1
+
+  - name: 设置店铺营业状态_无效状态值
+    priority: P1
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/shop/invalid_status
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 400
+      json:
+        code: -1
+
+  - name: 设置店铺营业状态_重复设置相同状态_营业
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/shop/open
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 设置店铺营业状态_重复设置相同状态_打烊
+    priority: P2
+    marker: regression
+    request:
+      method: PUT
+      path: /admin/shop/close
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1

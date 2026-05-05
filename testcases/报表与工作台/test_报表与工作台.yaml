@@ -1,0 +1,338 @@
+suite: 报表与工作台模块
+base_url: "{{base_url}}"
+cases:
+  - name: 正常获取订单统计数据
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/report/ordersStatistics
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 无效token访问订单统计
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/report/ordersStatistics
+      headers:
+        Content-Type: application/json
+        token: "invalid_token"
+    assert:
+      status_code: 401
+      json:
+        code: 0
+
+  - name: 无权限访问订单统计
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/report/ordersStatistics
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 403
+      json:
+        code: 0
+
+  - name: 正常获取菜品销量Top10
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/report/top10
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 无效token访问菜品Top10
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/report/top10
+      headers:
+        Content-Type: application/json
+        token: "invalid_token"
+    assert:
+      status_code: 401
+      json:
+        code: 0
+
+  - name: 无权限访问菜品Top10
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/report/top10
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 403
+      json:
+        code: 0
+
+  - name: 正常获取营业额统计
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/report/turnoverStatistics
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 无效token访问营业额统计
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/report/turnoverStatistics
+      headers:
+        Content-Type: application/json
+        token: "invalid_token"
+    assert:
+      status_code: 401
+      json:
+        code: 0
+
+  - name: 无权限访问营业额统计
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/report/turnoverStatistics
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 403
+      json:
+        code: 0
+
+  - name: 正常获取用户统计
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/report/userStatistics
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 无效token访问用户统计
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/report/userStatistics
+      headers:
+        Content-Type: application/json
+        token: "invalid_token"
+    assert:
+      status_code: 401
+      json:
+        code: 0
+
+  - name: 无权限访问用户统计
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/report/userStatistics
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 403
+      json:
+        code: 0
+
+  - name: 正常获取营业数据
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/workspace/businessData
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 无效token访问营业数据
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/workspace/businessData
+      headers:
+        Content-Type: application/json
+        token: "invalid_token"
+    assert:
+      status_code: 401
+      json:
+        code: 0
+
+  - name: 无权限访问营业数据
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/workspace/businessData
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 403
+      json:
+        code: 0
+
+  - name: 正常获取菜品概览
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/workspace/overviewDishes
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 无效token访问菜品概览
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/workspace/overviewDishes
+      headers:
+        Content-Type: application/json
+        token: "invalid_token"
+    assert:
+      status_code: 401
+      json:
+        code: 0
+
+  - name: 无权限访问菜品概览
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/workspace/overviewDishes
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 403
+      json:
+        code: 0
+
+  - name: 正常获取订单概览
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/workspace/overviewOrders
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 无效token访问订单概览
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/workspace/overviewOrders
+      headers:
+        Content-Type: application/json
+        token: "invalid_token"
+    assert:
+      status_code: 401
+      json:
+        code: 0
+
+  - name: 无权限访问订单概览
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/workspace/overviewOrders
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 403
+      json:
+        code: 0
+
+  - name: 正常获取套餐概览
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /admin/workspace/overviewSetmeals
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 无效token访问套餐概览
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/workspace/overviewSetmeals
+      headers:
+        Content-Type: application/json
+        token: "invalid_token"
+    assert:
+      status_code: 401
+      json:
+        code: 0
+
+  - name: 无权限访问套餐概览
+    priority: P1
+    marker: regression
+    request:
+      method: GET
+      path: /admin/workspace/overviewSetmeals
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 403
+      json:
+        code: 0
