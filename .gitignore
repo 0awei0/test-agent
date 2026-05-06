@@ -1,5 +1,6 @@
 .env
 .venv/
+NOTES.md
 __pycache__/
 *.pyc
 *.pyo
@@ -11,3 +12,6 @@ dist/
 build/
 .DS_Store
 allure-results/
+test_plan.json
+perf/generated_locustfile.py
+logs/
