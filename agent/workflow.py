@@ -3,16 +3,20 @@ Test Agent Workflow - 自动化测试工作流
 
 流程：
 1. Plan Agent    → 分析 API 文档，生成测试计划
-2. Generator     → 按模块批量生成测试用例
+2. Generator     → 按模块批量生成测试用例（带 Swagger 工具）
 3. Reviewer      → 审核用例质量
 4. Coverage      → 自动检测覆盖率
 5. Feedback Loop → 未覆盖接口反馈给 Generator 重新生成
+6. Pytest        → 执行功能测试
+7. Perf Test     → 性能压测
+8. Failure       → 失败分析（带工具）
 """
 
 import os
 import sys
 import json
 import time
+import subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["NO_PROXY"] = "*"
@@ -21,6 +25,7 @@ os.environ["HTTP_PROXY"] = ""
 os.environ["HTTPS_PROXY"] = ""
 
 from agent.model import mimo_model, doubao_model
+from agent.main import create_generator_agent, create_reviewer_agent, create_failure_analyzer_agent
 from agents import Agent, Runner
 from core.coverage import analyze_coverage, format_coverage_report
 
@@ -36,10 +41,8 @@ def load_prompt(filename: str) -> str:
 
 
 def load_swagger_summary(doc_path: str) -> str:
-    """加载 Swagger 文档摘要"""
     with open(doc_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-
     apis = []
     for path, methods in data.get("paths", {}).items():
         for method, detail in methods.items():
@@ -50,12 +53,10 @@ def load_swagger_summary(doc_path: str) -> str:
                     "summary": detail.get("summary", ""),
                     "tags": detail.get("tags", []),
                 })
-
     return json.dumps(apis, ensure_ascii=False, indent=2)
 
 
 def save_yaml(content: str, filepath: str):
-    """保存 YAML 文件"""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     clean = content.replace("```yaml", "").replace("```", "").strip()
     with open(filepath, "w", encoding="utf-8") as f:
@@ -64,11 +65,10 @@ def save_yaml(content: str, filepath: str):
 
 
 # ============================================================
-# Step 1: Plan Agent - 生成测试计划
+# Step 1: Plan Agent
 # ============================================================
 
 def run_plan_agent(swagger_paths: list) -> dict:
-    """Plan Agent: 分析 API 文档，生成测试计划"""
     print("\n" + "=" * 60)
     print("📋 Step 1: Plan Agent - 分析 API 文档，生成测试计划")
     print("=" * 60)
@@ -92,12 +92,10 @@ def run_plan_agent(swagger_paths: list) -> dict:
     result = Runner.run_sync(planner, task)
     plan_text = result.final_output
 
-    # 提取 JSON
     plan_text = plan_text.replace("```json", "").replace("```", "").strip()
     try:
         plan = json.loads(plan_text)
     except json.JSONDecodeError:
-        # 尝试找到 JSON 部分
         start = plan_text.find("{")
         end = plan_text.rfind("}") + 1
         if start >= 0 and end > start:
@@ -108,7 +106,6 @@ def run_plan_agent(swagger_paths: list) -> dict:
     print(f"  [Plan Agent] 完成！共 {len(plan.get('modules', []))} 个模块")
     print(f"  预估用例数: {plan.get('total_estimated_cases', '未知')}")
 
-    # 保存计划
     plan_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_plan.json")
     with open(plan_path, "w", encoding="utf-8") as f:
         json.dump(plan, f, ensure_ascii=False, indent=2)
@@ -118,26 +115,16 @@ def run_plan_agent(swagger_paths: list) -> dict:
 
 
 # ============================================================
-# Step 2 & 3: Generate + Review - 按模块生成并审核
+# Step 2 & 3: Generate + Review（带工具）
 # ============================================================
 
 def run_generate_and_review(modules: list, max_rounds: int = 2) -> list:
-    """按模块批量生成测试用例并审核"""
     print("\n" + "=" * 60)
     print("🔧 Step 2 & 3: Generate + Review - 按模块生成并审核")
     print("=" * 60)
 
-    generator = Agent(
-        name="TestGenerator",
-        instructions=load_prompt("generator.md"),
-        model=mimo_model,
-    )
-
-    reviewer = Agent(
-        name="TestReviewer",
-        instructions=load_prompt("reviewer.md"),
-        model=doubao_model if doubao_model else mimo_model,
-    )
+    generator = create_generator_agent()
+    reviewer = create_reviewer_agent()
 
     results = []
     total = len(modules)
@@ -150,7 +137,6 @@ def run_generate_and_review(modules: list, max_rounds: int = 2) -> list:
         print(f"\n  [{i}/{total}] {name} (优先级: {priority})")
         print(f"  接口数: {len(apis)}")
 
-        # 构建生成任务
         api_list = "\n".join([
             f"- {api['method']} {api['path']} {api.get('summary', '')}"
             for api in apis
@@ -162,9 +148,9 @@ def run_generate_and_review(modules: list, max_rounds: int = 2) -> list:
 要求：
 1. 每个接口至少 3 个用例（正常+异常+边界）
 2. 直接输出 YAML，不要有其他文字
-3. 用中文命名用例"""
+3. 用中文命名用例
+4. 可以调用 parse_swagger_doc 或 get_api_detail 了解接口详情"""
 
-        # 生成 + 审核循环
         for round_num in range(max_rounds):
             print(f"  [Round {round_num + 1}] 生成中...")
 
@@ -183,7 +169,6 @@ def run_generate_and_review(modules: list, max_rounds: int = 2) -> list:
                 print(f"  [Round {round_num + 1}] ❌ 未通过，继续修改...")
                 gen_task = f"请根据反馈修改测试用例。\n\n原始需求：{gen_task}\n\n上一版 YAML：\n{yaml_content}\n\n审核反馈：\n{review_feedback}"
 
-        # 保存文件
         safe_name = name.replace("/", "_").replace(" ", "_").lower()
         filepath = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
@@ -191,21 +176,16 @@ def run_generate_and_review(modules: list, max_rounds: int = 2) -> list:
         )
         save_yaml(yaml_content, filepath)
 
-        results.append({
-            "module": name,
-            "file": filepath,
-            "status": "success",
-        })
+        results.append({"module": name, "file": filepath, "status": "success"})
 
     return results
 
 
 # ============================================================
-# Step 4: Coverage Check - 覆盖率检测
+# Step 4: Coverage Check
 # ============================================================
 
 def run_coverage_check() -> dict:
-    """检测接口覆盖率"""
     print("\n" + "=" * 60)
     print("📊 Step 4: Coverage Check - 覆盖率检测")
     print("=" * 60)
@@ -222,16 +202,14 @@ def run_coverage_check() -> dict:
 
     result = analyze_coverage(swagger_files, yaml_dir)
     print(format_coverage_report(result))
-
     return result
 
 
 # ============================================================
-# Step 5: Feedback Loop - 补充缺失用例
+# Step 5: Feedback Loop
 # ============================================================
 
 def run_feedback_loop(coverage_result: dict, max_rounds: int = 3) -> dict:
-    """如果覆盖率未达标，反馈给 Generator 补充"""
     target_rate = 90.0
     current_rate = coverage_result["summary"]["coverage_rate"]
 
@@ -244,17 +222,8 @@ def run_feedback_loop(coverage_result: dict, max_rounds: int = 3) -> dict:
     print(f"当前覆盖率: {current_rate}%, 目标: {target_rate}%")
     print("=" * 60)
 
-    generator = Agent(
-        name="TestGenerator",
-        instructions=load_prompt("generator.md"),
-        model=mimo_model,
-    )
-
-    reviewer = Agent(
-        name="TestReviewer",
-        instructions=load_prompt("reviewer.md"),
-        model=doubao_model if doubao_model else mimo_model,
-    )
+    generator = create_generator_agent()
+    reviewer = create_reviewer_agent()
 
     for round_num in range(max_rounds):
         uncovered = coverage_result["uncovered"]
@@ -264,7 +233,6 @@ def run_feedback_loop(coverage_result: dict, max_rounds: int = 3) -> dict:
 
         print(f"\n  [Feedback Round {round_num + 1}] 未覆盖接口: {len(uncovered)} 个")
 
-        # 按模块分组
         modules = {}
         for api in uncovered:
             mod = api.get("module", "未分类")
@@ -272,7 +240,6 @@ def run_feedback_loop(coverage_result: dict, max_rounds: int = 3) -> dict:
                 modules[mod] = []
             modules[mod].append(api)
 
-        # 逐模块补充
         for mod, apis in modules.items():
             print(f"  补充模块: {mod} ({len(apis)} 个接口)")
 
@@ -286,11 +253,9 @@ def run_feedback_loop(coverage_result: dict, max_rounds: int = 3) -> dict:
             gen_result = Runner.run_sync(generator, gen_task)
             yaml_content = gen_result.final_output
 
-            # 审核
             review_task = f"请审核以下 YAML 测试用例：\n\n{yaml_content}"
-            review_result = Runner.run_sync(reviewer, review_task)
+            Runner.run_sync(reviewer, review_task)
 
-            # 保存到补充文件
             safe_mod = mod.replace("/", "_").replace(" ", "_").lower()
             filepath = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
@@ -298,7 +263,6 @@ def run_feedback_loop(coverage_result: dict, max_rounds: int = 3) -> dict:
             )
             save_yaml(yaml_content, filepath)
 
-        # 重新检测覆盖率
         coverage_result = run_coverage_check()
         current_rate = coverage_result["summary"]["coverage_rate"]
 
@@ -310,13 +274,75 @@ def run_feedback_loop(coverage_result: dict, max_rounds: int = 3) -> dict:
 
 
 # ============================================================
-# Step 6: Performance Test - 性能测试
+# Step 6: Pytest Execution（新增）
+# ============================================================
+
+def run_pytest_execution() -> dict:
+    """执行功能测试"""
+    print("\n" + "=" * 60)
+    print("🧪 Step 6: Pytest Execution - 执行功能测试")
+    print("=" * 60)
+
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    testcases_dir = os.path.join(project_root, "testcases")
+
+    if not os.path.exists(testcases_dir):
+        print("  ⚠️  testcases 目录不存在，跳过")
+        return {}
+
+    yaml_files = []
+    for root, dirs, files in os.walk(testcases_dir):
+        for f in files:
+            if f.endswith(".yaml") and f.startswith("test_"):
+                yaml_files.append(os.path.join(root, f))
+
+    if not yaml_files:
+        print("  ⚠️  没有找到测试用例文件，跳过")
+        return {}
+
+    print(f"  找到 {len(yaml_files)} 个测试文件")
+
+    cmd = [
+        os.path.join(project_root, ".venv", "bin", "pytest"),
+        testcases_dir,
+        "--alluredir", os.path.join(project_root, "reports"),
+        "--clean-alluredir",
+        "-v",
+        "--tb=short",
+    ]
+
+    print("  [Pytest] 正在执行...")
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=project_root,
+    )
+
+    output = result.stdout + result.stderr
+    lines = output.strip().split("\n")
+
+    summary_lines = [l for l in lines if "passed" in l or "failed" in l or "error" in l or "==" in l]
+    summary = "\n".join(summary_lines[-10:]) if summary_lines else output[-1000:]
+
+    print(f"  [Pytest] 结果:")
+    print(f"  {summary}")
+
+    return {
+        "returncode": result.returncode,
+        "output": summary,
+        "total_files": len(yaml_files),
+    }
+
+
+# ============================================================
+# Step 7: Performance Test
 # ============================================================
 
 def run_perf_test(perf_yaml: str = "perf/scenarios/core_api.yaml") -> dict:
-    """执行性能测试"""
     print("\n" + "=" * 60)
-    print("⚡ Step 6: Performance Test - 性能测试")
+    print("⚡ Step 7: Performance Test - 性能测试")
     print("=" * 60)
 
     from core.locust_runner import load_perf_yaml, generate_locustfile, run_locust_test, format_perf_report
@@ -336,11 +362,9 @@ def run_perf_test(perf_yaml: str = "perf/scenarios/core_api.yaml") -> dict:
     print(f"  并发: {perf_config.get('users', 10)} 用户")
     print(f"  时长: {perf_config.get('run_time', '30s')}")
 
-    # 生成 locustfile
     locustfile = os.path.join(project_root, "perf", "generated_locustfile.py")
     generate_locustfile(config, locustfile)
 
-    # 执行压测
     print("  [Locust] 正在执行压测...")
     stats = run_locust_test(
         locustfile_path=locustfile,
@@ -352,18 +376,16 @@ def run_perf_test(perf_yaml: str = "perf/scenarios/core_api.yaml") -> dict:
 
     report = format_perf_report(stats)
     print(report)
-
     return stats
 
 
 # ============================================================
-# Step 7: Failure Analysis - 失败分析
+# Step 8: Failure Analysis（带工具）
 # ============================================================
 
 def run_failure_analysis() -> str:
-    """分析测试失败用例"""
     print("\n" + "=" * 60)
-    print("🔍 Step 7: Failure Analysis - 失败分析")
+    print("🔍 Step 8: Failure Analysis - 失败分析")
     print("=" * 60)
 
     from core.failure_collector import collect_failures_from_allure, format_failures_for_agent
@@ -376,11 +398,7 @@ def run_failure_analysis() -> str:
 
     print(f"  发现 {len(failures)} 个失败用例")
 
-    analyzer = Agent(
-        name="FailureAnalyzer",
-        instructions=load_prompt("failure_analyzer.md"),
-        model=mimo_model,
-    )
+    analyzer = create_failure_analyzer_agent()
 
     formatted = format_failures_for_agent(failures)
     task = f"请分析以下测试失败用例，判断是用例问题、代码Bug还是环境问题：\n\n{formatted}"
@@ -389,7 +407,7 @@ def run_failure_analysis() -> str:
     analysis = result.final_output
 
     print(f"  分析完成:")
-    print(f"  {analysis[:300]}...")
+    print(f"  {analysis[:500]}")
 
     return analysis
 
@@ -399,7 +417,6 @@ def run_failure_analysis() -> str:
 # ============================================================
 
 def run_workflow(swagger_dir: str = "docs"):
-    """执行完整的测试工作流"""
     start_time = time.time()
 
     print("\n" + "🚀" * 20)
@@ -429,8 +446,6 @@ def run_workflow(swagger_dir: str = "docs"):
     # Step 2 & 3: Generate + Review
     modules = plan.get("modules", [])
     execution_order = plan.get("execution_order", [])
-
-    # 按 execution_order 排序
     if execution_order:
         order_map = {name: i for i, name in enumerate(execution_order)}
         modules.sort(key=lambda m: order_map.get(m.get("name", ""), 999))
@@ -443,10 +458,13 @@ def run_workflow(swagger_dir: str = "docs"):
     # Step 5: Feedback Loop
     final_result = run_feedback_loop(coverage_result)
 
-    # Step 6: Performance Test
+    # Step 6: Pytest Execution（新增）
+    pytest_result = run_pytest_execution()
+
+    # Step 7: Performance Test
     perf_result = run_perf_test()
 
-    # Step 7: Failure Analysis
+    # Step 8: Failure Analysis（带工具）
     failure_result = run_failure_analysis()
 
     # 最终报告
@@ -458,14 +476,15 @@ def run_workflow(swagger_dir: str = "docs"):
     print(f"已覆盖:     {final_result['summary']['covered_apis']}")
     print(f"测试用例数: {final_result['summary']['total_cases']}")
     print(f"最终覆盖率: {final_result['summary']['coverage_rate']}%")
+    if pytest_result:
+        print(f"功能测试:   {pytest_result.get('output', 'N/A')}")
     if perf_result and perf_result.get("total"):
         total = perf_result["total"]
         print(f"压测 QPS:   {total.get('rps', 0):.2f}")
         print(f"平均响应:   {total.get('avg_response_time', 0):.2f} ms")
         print(f"P95 响应:   {total.get('p95', 0):.2f} ms")
-        print(f"错误率:     {total.get('failures', 0) / max(total.get('requests', 1), 1) * 100:.2f}%")
     if failure_result:
-        print(f"失败分析:   {failure_result}")
+        print(f"失败分析:   已完成")
     print(f"总耗时:     {elapsed:.1f} 秒")
     print("=" * 60)
 

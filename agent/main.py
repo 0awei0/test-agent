@@ -11,18 +11,22 @@ def load_prompt(filename: str) -> str:
 
 
 def create_generator_agent() -> Agent:
-    """创建测试用例生成 Agent（使用 mimo）"""
+    """创建测试用例生成 Agent（使用 mimo，带 Swagger 工具）"""
     system_prompt = load_prompt("generator.md")
+    generator_tools = [
+        t for t in all_tools
+        if t.name in ("parse_swagger_doc", "get_api_detail")
+    ]
     return Agent(
         name="TestGenerator",
         instructions=system_prompt,
         model=mimo_model,
-        tools=[],
+        tools=generator_tools,
     )
 
 
 def create_reviewer_agent() -> Agent:
-    """创建测试用例审核 Agent（使用 doubao）"""
+    """创建测试用例审核 Agent（使用 doubao，纯推理）"""
     system_prompt = load_prompt("reviewer.md")
     model = doubao_model if doubao_model else mimo_model
     return Agent(
@@ -30,6 +34,21 @@ def create_reviewer_agent() -> Agent:
         instructions=system_prompt,
         model=model,
         tools=[],
+    )
+
+
+def create_failure_analyzer_agent() -> Agent:
+    """创建失败分析 Agent（使用 mimo，带失败分析工具）"""
+    system_prompt = load_prompt("failure_analyzer.md")
+    failure_tools = [
+        t for t in all_tools
+        if t.name in ("analyze_test_failures", "get_failure_details")
+    ]
+    return Agent(
+        name="FailureAnalyzer",
+        instructions=system_prompt,
+        model=mimo_model,
+        tools=failure_tools,
     )
 
 
@@ -45,7 +64,6 @@ def generate_and_review(task: str, max_rounds: int = 3) -> str:
         print(f"第 {round_num + 1} 轮")
         print(f"{'='*50}")
 
-        # 1. 生成/修改用例
         if round_num == 0:
             gen_task = f"请根据以下需求生成 YAML 格式的测试用例：\n\n{task}"
         else:
@@ -56,14 +74,12 @@ def generate_and_review(task: str, max_rounds: int = 3) -> str:
         current_yaml = gen_result.final_output
         print(f"[Generator] 生成完成")
 
-        # 2. 审核用例
         print(f"\n[Reviewer] 正在审核...")
         review_task = f"请审核以下 YAML 测试用例：\n\n{current_yaml}"
         review_result = Runner.run_sync(reviewer, review_task)
         review_feedback = review_result.final_output
         print(f"[Reviewer] 审核完成")
 
-        # 3. 检查是否通过
         if "通过" in review_feedback or "PASS" in review_feedback.upper():
             print(f"\n✅ 审核通过！")
             return current_yaml
