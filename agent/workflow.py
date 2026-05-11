@@ -342,8 +342,16 @@ def run_workflow(swagger_dir: str = "docs"):
     # Step 2: 逐模块执行闭环
     all_results = []
     for i, module in enumerate(modules, 1):
-        result = run_module_pipeline(module, swagger_files, i, len(modules))
-        all_results.append(result)
+        try:
+            result = run_module_pipeline(module, swagger_files, i, len(modules))
+            all_results.append(result)
+        except Exception as e:
+            print(f"\n  ❌ 模块 {module.get('name', 'unknown')} 执行失败: {type(e).__name__}: {str(e)[:100]}")
+            all_results.append({
+                "module": module.get("name", "unknown"),
+                "error": str(e),
+                "test_result": {"returncode": -1, "passed": 0, "failed": 0, "total": 0, "pass_rate": 0},
+            })
 
     # Step 3: 汇总结果
     print("\n" + "=" * 60)
