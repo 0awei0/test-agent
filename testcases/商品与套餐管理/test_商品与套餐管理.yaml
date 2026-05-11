@@ -1,0 +1,795 @@
+suite: 商品与套餐管理模块
+base_url: '{{base_url}}'
+cases:
+- name: 新增分类_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/category
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      name: 测试分类
+      type: 1
+      sort: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM category WHERE name = '测试分类'
+    expect_not_empty: true
+- name: 新增分类_名称为空
+  priority: P1
+  request:
+    method: POST
+    path: /admin/category
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      name: ''
+      type: 1
+      sort: 1
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增分类_未登录
+  priority: P1
+  request:
+    method: POST
+    path: /admin/category
+    headers:
+      Content-Type: application/json
+    body:
+      name: 未登录分类
+      type: 1
+      sort: 1
+  assert:
+    status_code: 401
+- name: 修改分类_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/category
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: ${category_id}
+      name: 修改后的分类
+      type: 1
+      sort: 2
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM category WHERE id = ${category_id} AND name = '修改后的分类'
+    expect_not_empty: true
+- name: 修改分类_不存在的分类
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/category
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 999999
+      name: 不存在的分类
+      type: 1
+      sort: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 删除分类_正常流程
+  priority: P0
+  request:
+    method: DELETE
+    path: /admin/category
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      id: ${category_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM category WHERE id = ${category_id}
+    expect_empty: true
+- name: 删除分类_不存在的分类
+  priority: P1
+  request:
+    method: DELETE
+    path: /admin/category
+    headers:
+      Content-Type: application/json
+    token: '{{admin_token}}'
+    query:
+      id: 999999
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 查询分类列表_按类型查询菜品分类
+  priority: P0
+  request:
+    method: GET
+    path: /admin/category/list
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      type: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 查询分类列表_按类型查询套餐分类
+  priority: P0
+  request:
+    method: GET
+    path: /admin/category/list
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      type: 2
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 分页查询分类_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/category/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 分页查询分类_按名称搜索
+  priority: P0
+  request:
+    method: GET
+    path: /admin/category/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+      name: 测试
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 启用分类_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/category/status/1
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      id: ${category_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM category WHERE id = ${category_id} AND status = 1
+    expect_not_empty: true
+- name: 禁用分类_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/category/status/0
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      id: ${category_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM category WHERE id = ${category_id} AND status = 0
+    expect_not_empty: true
+- name: 新增菜品_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      name: 测试菜品
+      categoryId: ${category_id}
+      price: 3800
+      image: /images/dish.jpg
+      description: 测试菜品描述
+      status: 1
+      flavors:
+      - name: 辣度
+        value: 少辣
+      - name: 温度
+        value: 常温
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM dish WHERE name = '测试菜品' AND is_deleted = 0
+    expect_not_empty: true
+- name: 新增菜品_名称为空
+  priority: P1
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      name: ''
+      categoryId: ${category_id}
+      price: 3800
+      image: /images/dish.jpg
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增菜品_未登录
+  priority: P1
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+    body:
+      name: 未登录菜品
+      categoryId: 1
+      price: 3800
+      image: /images/dish.jpg
+  assert:
+    status_code: 401
+- name: 修改菜品_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: ${dish_id}
+      name: 修改后的菜品
+      categoryId: ${category_id}
+      price: 4800
+      image: /images/dish_new.jpg
+      description: 修改后的描述
+      flavors:
+      - name: 辣度
+        value: 中辣
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM dish WHERE id = ${dish_id} AND name = '修改后的菜品'
+    expect_not_empty: true
+- name: 修改菜品_不存在的菜品
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 999999
+      name: 不存在的菜品
+      categoryId: ${category_id}
+      price: 4800
+      image: /images/dish_new.jpg
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 批量删除菜品_正常流程
+  priority: P0
+  request:
+    method: DELETE
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      ids: ${dish_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM dish WHERE id = ${dish_id} AND is_deleted = 0
+    expect_empty: true
+- name: 批量删除菜品_不存在的菜品
+  priority: P1
+  request:
+    method: DELETE
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      ids: '999999'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 查询菜品列表_按分类查询
+  priority: P0
+  request:
+    method: GET
+    path: /admin/dish/list
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      categoryId: ${category_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 查询菜品列表_未传分类
+  priority: P0
+  request:
+    method: GET
+    path: /admin/dish/list
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品分页查询_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/dish/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品分页查询_按名称搜索
+  priority: P0
+  request:
+    method: GET
+    path: /admin/dish/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+      name: 测试
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品分页查询_按状态查询
+  priority: P1
+  request:
+    method: GET
+    path: /admin/dish/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+      status: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品起售_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/dish/status/1
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      id: ${dish_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM dish WHERE id = ${dish_id} AND status = 1
+    expect_not_empty: true
+- name: 菜品停售_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/dish/status/0
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      id: ${dish_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM dish WHERE id = ${dish_id} AND status = 0
+    expect_not_empty: true
+- name: 根据id查询菜品_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/dish/${dish_id}
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 根据id查询菜品_不存在的菜品
+  priority: P1
+  request:
+    method: GET
+    path: /admin/dish/999999
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增套餐_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/setmeal
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      name: 测试套餐
+      categoryId: ${setmeal_category_id}
+      price: 9800
+      image: /images/setmeal.jpg
+      description: 测试套餐描述
+      status: 1
+      setmealDishes:
+      - dishId: ${dish_id}
+        name: 测试菜品
+        price: 3800
+        copies: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM setmeal WHERE name = '测试套餐' AND is_deleted = 0
+    expect_not_empty: true
+- name: 新增套餐_名称为空
+  priority: P1
+  request:
+    method: POST
+    path: /admin/setmeal
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      name: ''
+      categoryId: ${setmeal_category_id}
+      price: 9800
+      image: /images/setmeal.jpg
+      setmealDishes:
+      - dishId: ${dish_id}
+        name: 测试菜品
+        price: 3800
+        copies: 1
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增套餐_未登录
+  priority: P1
+  request:
+    method: POST
+    path: /admin/setmeal
+    headers:
+      Content-Type: application/json
+    body:
+      name: 未登录套餐
+      categoryId: 1
+      price: 9800
+      image: /images/setmeal.jpg
+      setmealDishes:
+      - dishId: 1
+        name: 测试菜品
+        price: 3800
+        copies: 1
+  assert:
+    status_code: 401
+- name: 修改套餐_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/setmeal
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: ${setmeal_id}
+      name: 修改后的套餐
+      categoryId: ${setmeal_category_id}
+      price: 10800
+      image: /images/setmeal_new.jpg
+      description: 修改后的描述
+      setmealDishes:
+      - dishId: ${dish_id}
+        name: 测试菜品
+        price: 4800
+        copies: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM setmeal WHERE id = ${setmeal_id} AND name = '修改后的套餐'
+    expect_not_empty: true
+- name: 修改套餐_不存在的套餐
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/setmeal
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 999999
+      name: 不存在的套餐
+      categoryId: ${setmeal_category_id}
+      price: 10800
+      image: /images/setmeal_new.jpg
+      setmealDishes:
+      - dishId: ${dish_id}
+        name: 测试菜品
+        price: 4800
+        copies: 1
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 删除套餐_正常流程
+  priority: P0
+  request:
+    method: DELETE
+    path: /admin/setmeal
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      ids: ${setmeal_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM setmeal WHERE id = ${setmeal_id} AND is_deleted = 0
+    expect_empty: true
+- name: 删除套餐_不存在的套餐
+  priority: P1
+  request:
+    method: DELETE
+    path: /admin/setmeal
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      ids: '999999'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 删除套餐_删除起售中的套餐
+  priority: P0
+  request:
+    method: DELETE
+    path: /admin/setmeal
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      ids: ${setmeal_id_started}
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 套餐分页查询_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/setmeal/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 套餐分页查询_按名称搜索
+  priority: P0
+  request:
+    method: GET
+    path: /admin/setmeal/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+      name: 测试
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 套餐分页查询_按状态查询
+  priority: P1
+  request:
+    method: GET
+    path: /admin/setmeal/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+      status: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 套餐起售_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/setmeal/status/1
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      id: ${setmeal_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM setmeal WHERE id = ${setmeal_id} AND status = 1
+    expect_not_empty: true
+- name: 套餐停售_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/setmeal/status/0
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      id: ${setmeal_id}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM setmeal WHERE id = ${setmeal_id} AND status = 0
+    expect_not_empty: true
+- name: 起售包含停售菜品的套餐_应失败
+  priority: P0
+  request:
+    method: POST
+    path: /admin/setmeal/status/1
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    query:
+      id: ${setmeal_id_with_stop_dish}
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 根据id查询套餐_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/setmeal/${setmeal_id}
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 根据id查询套餐_不存在的套餐
+  priority: P1
+  request:
+    method: GET
+    path: /admin/setmeal/999999
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 分类接口_未登录_新增分类
+  priority: P1
+  request:
+    method: POST
+    path: /admin/category
+    headers:
+      Content-Type: application/json
+    body:
+      name: 未登录测试
+      type: 1
+  assert:
+    status_code: 401
+- name: 菜品接口_未登录_新增菜品
+  priority: P1
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+    body:
+      name: 未登录测试
+      categoryId: 1
+      price: 1000
+  assert:
+    status_code: 401
+- name: 套餐接口_未登录_新增套餐
+  priority: P1
+  request:
+    method: POST
+    path: /admin/setmeal
+    headers:
+      Content-Type: application/json
+    body:
+      name: 未登录测试
+      categoryId: 1
+      price: 1000
+  assert:
+    status_code: 401

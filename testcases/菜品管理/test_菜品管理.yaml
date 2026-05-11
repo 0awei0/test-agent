@@ -1,492 +1,595 @@
 suite: 菜品管理模块
-base_url: "{{base_url}}"
+base_url: '{{base_url}}'
 cases:
-  - name: 新增菜品_正常流程
-    priority: P0
-    marker: smoke
-    request:
-      method: POST
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      body:
-        name: "红烧肉"
-        category_id: 1
-        price: 3800
-        image: "http://example.com/hongshaorou.jpg"
-        description: "经典红烧肉，软糯入味"
-        status: 1
-        sort: 10
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        msg: success
-    db_check:
-      - sql: "SELECT * FROM dish WHERE name = '红烧肉'"
-        expect_not_empty: true
-        expect_fields:
-          category_id: 1
-          price: 3800
-
-  - name: 新增菜品_缺少必填参数name
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      body:
-        category_id: 1
-        price: 3800
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "菜品名称不能为空"
-
-  - name: 新增菜品_价格为负数
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      body:
-        name: "测试菜品"
-        category_id: 1
-        price: -100
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "价格不能为负数"
-
-  - name: 新增菜品_重复菜品名称
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      body:
-        name: "红烧肉"
-        category_id: 1
-        price: 3800
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "菜品名称已存在"
-
-  - name: 新增菜品_不存在的分类ID
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      body:
-        name: "新菜品"
-        category_id: 999999
-        price: 2500
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "分类不存在"
-
-  - name: 修改菜品_正常修改名称和价格
-    priority: P0
-    marker: smoke
-    request:
-      method: PUT
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      body:
-        id: 1
-        name: "红烧肉(新)"
-        price: 4200
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        msg: success
-    db_check:
-      - sql: "SELECT * FROM dish WHERE id = 1"
-        expect_not_empty: true
-        expect_fields:
-          name: "红烧肉(新)"
-          price: 4200
-
-  - name: 修改菜品_修改不存在的菜品
-    priority: P1
-    marker: regression
-    request:
-      method: PUT
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      body:
-        id: 999999
-        name: "不存在的菜品"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "菜品不存在"
-
-  - name: 修改菜品_修改已停售的菜品
-    priority: P2
-    marker: regression
-    request:
-      method: PUT
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      body:
-        id: 5
-        name: "停售菜品修改"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "菜品已停售，不允许修改"
-
-  - name: 批量删除菜品_正常删除两个菜品
-    priority: P0
-    marker: smoke
-    request:
-      method: DELETE
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      params:
-        ids: "10,11"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        msg: success
-    db_check:
-      - sql: "SELECT * FROM dish WHERE id IN (10,11)"
-        expect_empty: true
-
-  - name: 批量删除菜品_删除不存在的ID
-    priority: P1
-    marker: regression
-    request:
-      method: DELETE
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      params:
-        ids: "999999"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        msg: success
-    db_check:
-      - sql: "SELECT * FROM dish WHERE id = 999999"
-        expect_empty: true
-
-  - name: 批量删除菜品_删除有关联订单的菜品
-    priority: P2
-    marker: regression
-    request:
-      method: DELETE
-      path: /admin/dish
-      headers:
-        Content-Type: application/json
-        token: "{{admin_token}}"
-      params:
-        ids: "1"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "菜品已关联订单，不能删除"
-
-  - name: 获取菜品列表_正常查询
-    priority: P0
-    marker: smoke
-    request:
-      method: GET
-      path: /admin/dish/list
-      headers:
-        token: "{{admin_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          - $type: array
-
-  - name: 获取菜品列表_按分类ID筛选
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /admin/dish/list
-      headers:
-        token: "{{admin_token}}"
-      params:
-        category_id: 1
-    assert:
-      status_code: 200
-      json:
-        code: 1
-    db_check:
-      - sql: "SELECT COUNT(*) FROM dish WHERE category_id = 1 AND status = 1"
-        expect_field_match: "0.count.json.1.data.length()"
-
-  - name: 获取菜品列表_按状态筛选(停售)
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /admin/dish/list
-      headers:
-        token: "{{admin_token}}"
-      params:
-        status: 0
-    assert:
-      status_code: 200
-      json:
-        code: 1
-
-  - name: 菜品分页查询_正常查询第一页
-    priority: P0
-    marker: smoke
-    request:
-      method: GET
-      path: /admin/dish/page
-      headers:
-        token: "{{admin_token}}"
-      params:
-        page: 1
-        pageSize: 10
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          records:
-            $type: array
-          total:
-            $type: number
-
-  - name: 菜品分页查询_页码为负数
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /admin/dish/page
-      headers:
-        token: "{{admin_token}}"
-      params:
-        page: -1
-        pageSize: 10
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "页码不能小于1"
-
-  - name: 菜品分页查询_每页条目数为0
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /admin/dish/page
-      headers:
-        token: "{{admin_token}}"
-      params:
-        page: 1
-        pageSize: 0
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "每页条目数不能小于1"
-
-  - name: 菜品分页查询_查询空结果
-    priority: P2
-    marker: regression
-    request:
-      method: GET
-      path: /admin/dish/page
-      headers:
-        token: "{{admin_token}}"
-      params:
-        page: 1
-        pageSize: 10
-        name: "不存在的菜品名"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          records: []
-          total: 0
-
-  - name: 菜品起售_将停售菜品起售
-    priority: P0
-    marker: smoke
-    request:
-      method: POST
-      path: /admin/dish/status/1
-      headers:
-        token: "{{admin_token}}"
-      params:
-        id: 5
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        msg: success
-    db_check:
-      - sql: "SELECT status FROM dish WHERE id = 5"
-        expect_not_empty: true
-        expect_fields:
-          status: 1
-
-  - name: 菜品停售_将起售菜品停售
-    priority: P0
-    marker: smoke
-    request:
-      method: POST
-      path: /admin/dish/status/0
-      headers:
-        token: "{{admin_token}}"
-      params:
-        id: 1
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        msg: success
-    db_check:
-      - sql: "SELECT status FROM dish WHERE id = 1"
-        expect_not_empty: true
-        expect_fields:
-          status: 0
-
-  - name: 菜品状态切换_无效状态码
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /admin/dish/status/2
-      headers:
-        token: "{{admin_token}}"
-      params:
-        id: 1
-    assert:
-      status_code: 400
-      json:
-        code: 0
-        msg: "无效的状态码"
-
-  - name: 菜品状态切换_不存在的菜品ID
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /admin/dish/status/1
-      headers:
-        token: "{{admin_token}}"
-      params:
-        id: 999999
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "菜品不存在"
-
-  - name: 根据ID查询菜品_正常查询
-    priority: P0
-    marker: smoke
-    request:
-      method: GET
-      path: /admin/dish/1
-      headers:
-        token: "{{admin_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          id: 1
-          name:
-            $type: string
-
-  - name: 根据ID查询菜品_查询不存在的ID
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /admin/dish/999999
-      headers:
-        token: "{{admin_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "菜品不存在"
-
-  - name: 根据ID查询菜品_无效ID格式
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /admin/dish/abc
-      headers:
-        token: "{{admin_token}}"
-    assert:
-      status_code: 400
-      json:
-        code: 0
-        msg: "无效的ID格式"
-
-  - name: 菜品管理权限校验_无token访问
-    priority: P2
-    marker: regression
-    request:
-      method: GET
-      path: /admin/dish/1
-    assert:
-      status_code: 401
-      json:
-        code: 401
-        msg: "未登录"
-
-  - name: 菜品管理权限校验_普通用户token访问管理员接口
-    priority: P2
-    marker: regression
-    request:
-      method: GET
-      path: /admin/dish/1
-      headers:
-        token: "{{user_token}}"
-    assert:
-      status_code: 403
-      json:
-        code: 403
-        msg: "权限不足"
+- name: 新增菜品_正常流程_必填字段完整
+  priority: P0
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      categoryId: 1
+      name: 宫保鸡丁
+      price: 3800
+      image: /images/dish/gongbaojiding.jpg
+      description: 经典川菜
+      status: 1
+      flavors:
+      - name: 辣度
+        value: 微辣
+      - name: 温度
+        value: 正常
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: 操作成功
+  db_check:
+  - sql: SELECT * FROM dish WHERE name = '宫保鸡丁' AND is_deleted = 0
+    expect_not_empty: true
+  - sql: SELECT status FROM dish WHERE name = '宫保鸡丁' AND is_deleted = 0
+    expect_value: 1
+- name: 新增菜品_异常_名称为空
+  priority: P1
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      categoryId: 1
+      name: ''
+      price: 3800
+      image: /images/dish/test.jpg
+      description: 测试菜品
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: ''
+  db_check:
+  - sql: SELECT * FROM dish WHERE name = '' AND is_deleted = 0
+    expect_empty: true
+- name: 新增菜品_异常_未登录
+  priority: P1
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+    body:
+      categoryId: 1
+      name: 宫保鸡丁
+      price: 3800
+      image: /images/dish/test.jpg
+      description: 经典川菜
+  assert:
+    status_code: 401
+  db_check:
+  - sql: SELECT * FROM dish WHERE name = '宫保鸡丁' AND is_deleted = 0
+    expect_empty: true
+- name: 新增菜品_异常_价格为负数
+  priority: P1
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      categoryId: 1
+      name: 宫保鸡丁
+      price: -100
+      image: /images/dish/test.jpg
+      description: 经典川菜
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: ''
+  db_check:
+  - sql: SELECT * FROM dish WHERE name = '宫保鸡丁' AND price < 0 AND is_deleted = 0
+    expect_empty: true
+- name: 修改菜品_正常流程_修改名称和价格
+  priority: P0
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      categoryId: 1
+      name: 宫保鸡丁_待修改
+      price: 3800
+      image: /images/dish/test.jpg
+      description: 测试菜品
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  extract:
+    dish_id: $.data
+  save_as: setup_dish_id_1
+- name: 修改菜品_正常流程_执行修改
+  priority: P0
+  depends_on: save_dish_id_1
+  request:
+    method: PUT
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: '{{setup_dish_id_1}}'
+      categoryId: 1
+      name: 宫保鸡丁_已修改
+      price: 4200
+      image: /images/dish/updated.jpg
+      description: 修改后的菜品
+      status: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: 操作成功
+  db_check:
+  - sql: SELECT name, price FROM dish WHERE id = {{setup_dish_id_1}} AND is_deleted
+      = 0
+    expect_not_empty: true
+- name: 修改菜品_异常_菜品不存在
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 999999
+      categoryId: 1
+      name: 不存在的菜品
+      price: 3800
+      image: /images/dish/test.jpg
+      description: 测试
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 修改菜品_异常_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+    body:
+      id: 1
+      categoryId: 1
+      name: 宫保鸡丁
+      price: 3800
+      image: /images/dish/test.jpg
+      description: 测试
+  assert:
+    status_code: 401
+- name: 修改菜品_边界_名称最大长度
+  priority: P2
+  depends_on: save_dish_id_1
+  request:
+    method: PUT
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: '{{setup_dish_id_1}}'
+      categoryId: 1
+      name: 菜品名称测试最大长度验证菜品名称测试最大长度验证菜品名称测试最大长度验证菜品名称测试最大长度验证菜品名称测试最大长度验证菜品名称测试最大长度验证
+      price: 3800
+      image: /images/dish/test.jpg
+      description: 边界测试
+      status: 1
+  assert:
+    status_code: 200
+- name: 批量删除菜品_正常流程_删除单个菜品
+  priority: P0
+  request:
+    method: POST
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      categoryId: 1
+      name: 待删除菜品A
+      price: 1000
+      image: /images/dish/delete_a.jpg
+      description: 用于删除测试
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  extract:
+    delete_dish_id: $.data
+  save_as: delete_dish_id_a
+- name: 批量删除菜品_正常流程_执行删除
+  priority: P0
+  depends_on: save_delete_dish_id_a
+  request:
+    method: DELETE
+    path: /admin/dish?ids={{delete_dish_id_a}}
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: 操作成功
+  db_check:
+  - sql: SELECT * FROM dish WHERE id = {{delete_dish_id_a}} AND is_deleted = 0
+    expect_empty: true
+- name: 批量删除菜品_正常流程_删除多个菜品
+  priority: P0
+  setup:
+  - api: POST /admin/dish
+    body:
+      categoryId: 1
+      name: 批量删除菜品B
+      price: 1000
+      image: /images/dish/b.jpg
+      description: 批量删除测试
+    token: '{{admin_token}}'
+    extract:
+      multi_id_1: $.data
+  - api: POST /admin/dish
+    body:
+      categoryId: 1
+      name: 批量删除菜品C
+      price: 1000
+      image: /images/dish/c.jpg
+      description: 批量删除测试
+    token: '{{admin_token}}'
+    extract:
+      multi_id_2: $.data
+  request:
+    method: DELETE
+    path: /admin/dish?ids={{multi_id_1}}&ids={{multi_id_2}}
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: 操作成功
+  db_check:
+  - sql: SELECT * FROM dish WHERE id IN ({{multi_id_1}}, {{multi_id_2}}) AND is_deleted
+      = 0
+    expect_empty: true
+- name: 批量删除菜品_异常_未登录
+  priority: P1
+  request:
+    method: DELETE
+    path: /admin/dish?ids=1
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 批量删除菜品_异常_ids为空
+  priority: P1
+  request:
+    method: DELETE
+    path: /admin/dish
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 查询菜品列表_正常流程_按分类查询
+  priority: P0
+  request:
+    method: GET
+    path: /admin/dish/list?categoryId=1
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 查询菜品列表_正常流程_不传分类查询全部
+  priority: P0
+  request:
+    method: GET
+    path: /admin/dish/list
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 查询菜品列表_异常_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/dish/list?categoryId=1
+  assert:
+    status_code: 401
+- name: 查询菜品列表_边界_不存在的分类id
+  priority: P2
+  request:
+    method: GET
+    path: /admin/dish/list?categoryId=999999
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品分页查询_正常流程_默认分页
+  priority: P0
+  request:
+    method: GET
+    path: /admin/dish/page?page=1&pageSize=10
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品分页查询_正常流程_按名称搜索
+  priority: P0
+  request:
+    method: GET
+    path: /admin/dish/page?page=1&pageSize=10&name=宫保
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品分页查询_正常流程_按状态筛选
+  priority: P1
+  request:
+    method: GET
+    path: /admin/dish/page?page=1&pageSize=10&status=1
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品分页查询_正常流程_按分类筛选
+  priority: P1
+  request:
+    method: GET
+    path: /admin/dish/page?page=1&pageSize=10&categoryId=1
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品分页查询_正常流程_组合条件查询
+  priority: P1
+  request:
+    method: GET
+    path: /admin/dish/page?page=1&pageSize=10&name=鸡&categoryId=1&status=1
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品分页查询_异常_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/dish/page?page=1&pageSize=10
+  assert:
+    status_code: 401
+- name: 菜品分页查询_边界_pageSize为0
+  priority: P2
+  request:
+    method: GET
+    path: /admin/dish/page?page=1&pageSize=0
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+- name: 菜品分页查询_边界_超大page页码
+  priority: P2
+  request:
+    method: GET
+    path: /admin/dish/page?page=99999&pageSize=10
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 菜品起售_正常流程_停售改起售
+  priority: P0
+  setup:
+  - api: POST /admin/dish
+    body:
+      categoryId: 1
+      name: 起售测试菜品
+      price: 2000
+      image: /images/dish/status_a.jpg
+      description: 起售测试
+      status: 0
+    token: '{{admin_token}}'
+    extract:
+      status_dish_id: $.data
+  request:
+    method: POST
+    path: /admin/dish/status/1?id={{status_dish_id}}
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: 操作成功
+  db_check:
+  - sql: SELECT status FROM dish WHERE id = {{status_dish_id}}
+    expect_value: 1
+- name: 菜品停售_正常流程_起售改停售
+  priority: P0
+  setup:
+  - api: POST /admin/dish
+    body:
+      categoryId: 1
+      name: 停售测试菜品
+      price: 2000
+      image: /images/dish/status_b.jpg
+      description: 停售测试
+      status: 1
+    token: '{{admin_token}}'
+    extract:
+      stop_dish_id: $.data
+  request:
+    method: POST
+    path: /admin/dish/status/0?id={{stop_dish_id}}
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: 操作成功
+  db_check:
+  - sql: SELECT status FROM dish WHERE id = {{stop_dish_id}}
+    expect_value: 0
+- name: 菜品起售_异常_未登录
+  priority: P1
+  request:
+    method: POST
+    path: /admin/dish/status/1?id=1
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 菜品起售_异常_菜品不存在
+  priority: P1
+  request:
+    method: POST
+    path: /admin/dish/status/1?id=999999
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 菜品停售_异常_未传id参数
+  priority: P2
+  request:
+    method: POST
+    path: /admin/dish/status/0
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 根据id查询菜品_正常流程_查询已存在的菜品
+  priority: P0
+  setup:
+  - api: POST /admin/dish
+    body:
+      categoryId: 1
+      name: 查询测试菜品
+      price: 2500
+      image: /images/dish/get_a.jpg
+      description: 查询测试
+      status: 1
+      flavors:
+      - name: 辣度
+        value: 中辣
+    token: '{{admin_token}}'
+    extract:
+      query_dish_id: $.data
+  request:
+    method: GET
+    path: /admin/dish/{{query_dish_id}}
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 根据id查询菜品_正常流程_验证返回数据一致性
+  priority: P0
+  setup:
+  - api: POST /admin/dish
+    body:
+      categoryId: 1
+      name: 验证数据一致性菜品
+      price: 3000
+      image: /images/dish/get_b.jpg
+      description: 验证数据一致性
+      status: 1
+      flavors:
+      - name: 辣度
+        value: 微辣
+    token: '{{admin_token}}'
+    extract:
+      verify_dish_id: $.data
+  request:
+    method: GET
+    path: /admin/dish/{{verify_dish_id}}
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT name, price, category_id FROM dish WHERE id = {{verify_dish_id}}
+    expect_not_empty: true
+- name: 根据id查询菜品_异常_菜品不存在
+  priority: P1
+  request:
+    method: GET
+    path: /admin/dish/999999
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 根据id查询菜品_异常_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/dish/1
+  assert:
+    status_code: 401
+- name: 根据id查询菜品_边界_id为0
+  priority: P2
+  request:
+    method: GET
+    path: /admin/dish/0
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+- name: 根据id查询菜品_边界_id为负数
+  priority: P2
+  request:
+    method: GET
+    path: /admin/dish/-1
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200

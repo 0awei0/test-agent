@@ -1,0 +1,366 @@
+suite: 用户与认证管理模块
+base_url: '{{base_url}}'
+cases:
+- name: 员工登录_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    json_path:
+      $.data.token: $not_null
+- name: 员工登录_用户名错误
+  priority: P1
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: wronguser_not_exist
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 员工登录_密码错误
+  priority: P1
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+      password: wrongpassword
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 员工登录_用户名为空
+  priority: P0
+  known_issue: true
+  known_bug: 'P0-BUG: 员工登录接口未校验用户名空值，空用户名返回code=1登录成功，应返回code=0'
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: ''
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 员工退出_正常流程
+  priority: P0
+  known_issue: true
+  known_bug: 'BUG: 退出登录接口返回空响应体而非标准JSON，code=None'
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 员工退出_未登录
+  priority: P1
+  known_issue: true
+  known_bug: 'BUG: 认证拦截器未登录时返回空响应体，HTTP状态码401但无JSON body'
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 新增员工_正常流程
+  priority: P0
+  known_issue: true
+  known_bug: 'BUG: 新增员工正常流程返回code=0失败，需排查参数校验或数据库插入逻辑'
+  request:
+    method: POST
+    path: /admin/employee
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      name: 自动化测试员工
+      username: auto_test_emp_{{timestamp}}
+      phone: '13800138000'
+      sex: '1'
+      idNumber: '110101199001011234'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM employee WHERE username = 'auto_test_emp_{{timestamp}}'
+    expect_not_empty: true
+- name: 新增员工_用户名为空
+  priority: P1
+  request:
+    method: POST
+    path: /admin/employee
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      name: 测试空用户名
+      username: ''
+      phone: '13800138001'
+      sex: '1'
+      idNumber: '110101199001011235'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增员工_未登录
+  priority: P1
+  known_issue: true
+  known_bug: 'BUG: 认证拦截器未登录时返回空响应体，HTTP状态码401但无JSON body'
+  request:
+    method: POST
+    path: /admin/employee
+    headers:
+      Content-Type: application/json
+    body:
+      name: 未登录新增
+      username: unauth_emp_{{timestamp}}
+      phone: '13800138002'
+      sex: '1'
+      idNumber: '110101199001011236'
+  assert:
+    status_code: 401
+- name: 编辑员工信息_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/employee
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 1
+      name: 管理员-编辑测试
+      phone: '13900139000'
+      sex: '1'
+      idNumber: '110101199001011234'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM employee WHERE id = 1 AND name = '管理员-编辑测试'
+    expect_not_empty: true
+- name: 编辑员工信息_用户id不存在
+  priority: P1
+  known_issue: true
+  known_bug: '待确认: 编辑不存在的员工ID返回code=1成功，疑似接口将不存在ID当做新增处理，需确认预期行为'
+  request:
+    method: PUT
+    path: /admin/employee
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 99999
+      name: 不存在的用户
+      phone: '13900139001'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 编辑员工信息_未登录
+  priority: P1
+  known_issue: true
+  known_bug: 'BUG: 认证拦截器未登录时返回空响应体，HTTP状态码401但无JSON body'
+  request:
+    method: PUT
+    path: /admin/employee
+    headers:
+      Content-Type: application/json
+    body:
+      id: 1
+      name: 未登录编辑
+  assert:
+    status_code: 401
+- name: 员工分页查询_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/employee/page
+    headers:
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 员工分页查询_按姓名搜索
+  priority: P1
+  request:
+    method: GET
+    path: /admin/employee/page
+    headers:
+      token: '{{admin_token}}'
+    query:
+      name: 管理
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 员工分页查询_未登录
+  priority: P1
+  known_issue: true
+  known_bug: 'BUG: 认证拦截器未登录时返回空响应体，HTTP状态码401但无JSON body'
+  request:
+    method: GET
+    path: /admin/employee/page
+    query:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 401
+- name: 启用员工账号_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/employee/status/1
+    headers:
+      token: '{{admin_token}}'
+    query:
+      id: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM employee WHERE id = 1 AND status = 1
+    expect_not_empty: true
+- name: 禁用员工账号_正常流程
+  priority: P0
+  known_issue: true
+  known_bug: 'BUG: 禁用员工账号后数据库status字段未正确更新，DB查询id=1 AND status=0为空'
+  request:
+    method: POST
+    path: /admin/employee/status/0
+    headers:
+      token: '{{admin_token}}'
+    query:
+      id: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM employee WHERE id = 1 AND status = 0
+    expect_not_empty: true
+- name: 启用禁用员工账号_未登录
+  priority: P1
+  known_issue: true
+  known_bug: 'BUG: 认证拦截器未登录时返回空响应体，HTTP状态码401但无JSON body'
+  request:
+    method: POST
+    path: /admin/employee/status/1
+    query:
+      id: 1
+  assert:
+    status_code: 401
+- name: 根据id查询员工_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/employee/1
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 根据id查询员工_不存在的id
+  priority: P1
+  known_issue: true
+  known_bug: 'BUG: 查询不存在的员工ID返回空响应体(code=None)，且耗时异常高(3661ms)，疑似超时后返回空'
+  request:
+    method: GET
+    path: /admin/employee/99999
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 根据id查询员工_未登录
+  priority: P1
+  known_issue: true
+  known_bug: 'BUG: 认证拦截器未登录时返回空响应体，HTTP状态码401但无JSON body'
+  request:
+    method: GET
+    path: /admin/employee/1
+  assert:
+    status_code: 401
+- name: 微信登录_正常流程
+  priority: P0
+  known_issue: true
+  known_bug: 'BUG: 微信登录正常流程返回code=0失败，需检查微信环境配置(AppID/AppSecret)及授权凭证有效性'
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '{{wx_auth_code}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 微信登录_code为空
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 用户退出登录_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 用户退出登录_未登录
+  priority: P1
+  known_issue: true
+  known_bug: 'BUG: 认证拦截器未登录时返回空响应体，HTTP状态码401但无JSON body'
+  request:
+    method: POST
+    path: /user/user/logout
+  assert:
+    status_code: 401

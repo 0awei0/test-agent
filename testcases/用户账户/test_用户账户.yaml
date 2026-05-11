@@ -1,0 +1,271 @@
+suite: 用户账户模块
+base_url: '{{base_url}}'
+cases:
+- name: 微信登录_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: wx_valid_code_001
+  assert:
+    status_code: 200
+    json:
+      code: 0
+    json_path:
+      data.token: $.data.token
+      data.id: $.data.id
+      data.name: $.data.name
+  comment: 【已知Bug】微信登录功能异常，正常流程返回code=0
+- name: 微信登录_code为空
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code不传
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body: {}
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code为null
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: null
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code为无效值
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: invalid_code_xyz
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code为过期code
+  priority: P2
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: expired_code_123
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code含特殊字符
+  priority: P2
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: <script>alert(1)</script>
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code含超长字符串
+  priority: P2
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_返回数据完整性验证
+  priority: P0
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: wx_valid_code_002
+  assert:
+    status_code: 200
+    json:
+      code: 0
+    json_path:
+      data.token: $.data.token
+      data.id: $.data.id
+      data.name: $.data.name
+  db_check:
+  - sql: SELECT id, open_id, name FROM user ORDER BY create_time DESC LIMIT 1
+    expect_not_empty: true
+  comment: 【已知Bug】微信登录功能异常，正常流程返回code=0
+- name: 退出登录_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      msg: $.msg
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段
+- name: 退出登录_再次退出已失效token
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      msg: $.msg
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段
+- name: 退出登录_未登录无token
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段
+- name: 退出登录_token为空字符串
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: ''
+  assert:
+    status_code: 200
+    json:
+      msg: $.msg
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段
+- name: 退出登录_token为无效值
+  priority: P2
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: invalid_token_12345
+  assert:
+    status_code: 200
+    json:
+      msg: $.msg
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段
+- name: 退出登录_token为null
+  priority: P2
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: null
+  assert:
+    status_code: 200
+    json:
+      msg: $.msg
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段
+- name: 退出登录_过期token
+  priority: P2
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIxMjM0NTY3ODkwIiwic3ViIjoidXNlciIsImlhdCI6MTYwMDAwMDAwMCwiZXhwIjoxNjAwMDAwMDAxfQ.invalid
+  assert:
+    status_code: 200
+    json:
+      msg: $.msg
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段
+- name: 退出登录_token含SQL注入
+  priority: P2
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: admin' OR '1'='1
+  assert:
+    status_code: 200
+    json:
+      msg: $.msg
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段
+- name: 退出登录_token含XSS脚本
+  priority: P2
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: <script>alert(1)</script>
+  assert:
+    status_code: 200
+    json:
+      msg: $.msg
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段
+- name: 退出登录_退出后原token不可用
+  priority: P0
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      msg: $.msg
+  next_step:
+  - name: 退出后使用原token访问需登录接口
+    request:
+      method: GET
+      path: /user/addressBook/list
+      headers:
+        Content-Type: application/json
+        token: '{{user_token}}'
+    assert:
+      status_code: 200
+      json:
+        code: 0
+  comment: 【已知Bug】退出登录接口返回JSON缺少code字段

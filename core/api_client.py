@@ -12,11 +12,11 @@ class APIClient:
         self.session = requests.Session()
         self.token = None
 
-        # 配置重试策略
+        # 配置重试策略（不重试 500，避免无效数据触发大量重试）
         retry_strategy = Retry(
             total=max_retries,
             backoff_factor=0.5,
-            status_forcelist=[500, 502, 503, 504],
+            status_forcelist=[502, 503, 504],
             allowed_methods=["GET", "POST", "PUT", "DELETE"],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -46,20 +46,21 @@ class APIClient:
 
             try:
                 result = response.json()
+                result["_status_code"] = response.status_code
                 logger.debug(f"[API] Response: {result}")
                 return result
             except Exception:
-                return {"status_code": response.status_code, "text": response.text}
+                return {"_status_code": response.status_code, "text": response.text}
 
         except requests.Timeout:
             logger.error(f"[API] Timeout: {method.upper()} {url}")
-            return {"error": "timeout", "message": f"Request timed out after {kwargs['timeout']}s"}
+            return {"_status_code": 0, "error": "timeout", "message": f"Request timed out after {kwargs['timeout']}s"}
         except requests.ConnectionError:
             logger.error(f"[API] Connection error: {url}")
-            return {"error": "connection_error", "message": f"Failed to connect to {self.base_url}"}
+            return {"_status_code": 0, "error": "connection_error", "message": f"Failed to connect to {self.base_url}"}
         except Exception as e:
             logger.error(f"[API] Error: {e}")
-            return {"error": type(e).__name__, "message": str(e)}
+            return {"_status_code": 0, "error": type(e).__name__, "message": str(e)}
 
     def get(self, path: str, **kwargs) -> dict:
         return self.request("GET", path, **kwargs)

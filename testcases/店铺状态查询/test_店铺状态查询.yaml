@@ -1,69 +1,68 @@
 suite: 店铺状态查询
-base_url: "{{base_url}}"
+base_url: '{{base_url}}'
 cases:
-  - name: 正常查询店铺营业状态
-    priority: P0
-    marker: smoke
-    request:
-      method: GET
-      path: /user/shop/status
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        msg: success
-    db_check:
-      - sql: "SELECT status FROM shop WHERE user_id = (SELECT id FROM user WHERE token = '{{user_token}}')"
-        expect_value: "{{response.body.data.status}}"
-
-  - name: 未携带token查询店铺状态_失败
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /user/shop/status
-      headers:
-        Content-Type: application/json
-    assert:
-      status_code: 200
-      json:
-        code: 401
-        msg: "未登录或token无效"
-
-  - name: 携带无效token查询店铺状态_失败
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /user/shop/status
-      headers:
-        Content-Type: application/json
-        token: "invalid_token_12345"
-    assert:
-      status_code: 200
-      json:
-        code: 401
-        msg: "未登录或token无效"
-
-  - name: 查询店铺状态_状态值为不同值验证
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /user/shop/status
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          status:
-            in: [0, 1, 2] # 0:暂停营业, 1:正常营业, 2:已关闭，需根据业务定义确认
-    db_check:
-      - sql: "SELECT status FROM shop WHERE user_id = (SELECT id FROM user WHERE token = '{{user_token}}')"
-        expect_value: "{{response.body.data.status}}"
+- name: 正常查询店铺营业状态
+  priority: P0
+  marker: smoke
+  request:
+    method: GET
+    path: /user/shop/status
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: success
+  db_check:
+  - sql: SELECT status FROM shop WHERE user_id = (SELECT id FROM user WHERE token
+      = '{{user_token}}')
+    expect_value: '{{response.body.data.status}}'
+- name: 未携带token查询店铺状态_失败
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/shop/status
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 携带无效token查询店铺状态_失败
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/shop/status
+    headers:
+      Content-Type: application/json
+      authentication: invalid_token_12345
+  assert:
+    status_code: 200
+    json:
+      code: 401
+      msg: 未登录或token无效
+- name: 查询店铺状态_状态值为不同值验证
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/shop/status
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        status:
+          in:
+          - 0
+          - 1
+          - 2
+  db_check:
+  - sql: SELECT status FROM shop WHERE user_id = (SELECT id FROM user WHERE token
+      = '{{user_token}}')
+    expect_value: '{{response.body.data.status}}'

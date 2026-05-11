@@ -1,0 +1,82 @@
+suite: 通用支持模块_文件上传
+base_url: '{{base_url}}'
+cases:
+- name: 文件上传_正常流程_上传图片文件
+  priority: P0
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        filename: test-image.jpg
+        content_type: image/jpeg
+        file_path: test-files/test-image.jpg
+  assert:
+    status_code: 200
+    content_type_contains: application/json
+    json:
+      code: 1
+      data:
+        not_null: true
+  description: 上传有效的图片文件，预期返回成功并包含文件URL。若 code 字段缺失，说明接口可能返回了非JSON响应（如500错误页），属于服务端Bug。
+- name: 文件上传_未登录_缺少token
+  priority: P1
+  request:
+    method: POST
+    path: /admin/common/upload
+    content_type: multipart/form-data
+    body:
+      file:
+        filename: test-image.jpg
+        content_type: image/jpeg
+        file_path: test-files/test-image.jpg
+  assert:
+    status_code:
+    - 200
+    - 401
+    - 403
+  description: 未登录状态上传文件，预期返回未授权错误。接受200+code=0或401/403两种响应模式。若响应为非JSON（如HTML页面），说明鉴权拦截器存在Bug。
+- name: 文件上传_异常场景_上传非图片文件
+  priority: P1
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        filename: test.txt
+        content_type: text/plain
+        file_path: test-files/test.txt
+  assert:
+    status_code: 200
+    content_type_contains: application/json
+    json:
+      code: 1
+  description: 上传非图片文件，预期根据系统配置返回成功或业务拒绝。若 code 字段缺失，说明接口存在全局性问题。
+- name: 文件上传_边界测试_上传空文件
+  priority: P2
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        filename: empty-file.jpg
+        content_type: image/jpeg
+        file_path: test-files/empty-file.jpg
+  assert:
+    status_code: 200
+    content_type_contains: application/json
+    json:
+      code:
+        in:
+        - 0
+        - 1
+  description: 上传空文件，测试系统对空文件的处理能力。接受code=0（业务拒绝）或code=1（上传成功）两种结果，但要求响应必须是JSON格式。

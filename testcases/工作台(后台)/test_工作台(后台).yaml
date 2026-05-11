@@ -1,0 +1,142 @@
+suite: 工作台模块
+base_url: '{{base_url}}'
+cases:
+- name: businessData_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/workspace/businessData
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT COUNT(*) FROM order WHERE status IN (2,3,4,5) AND DATE(create_time)
+      = CURDATE()
+    expect_column: 今日订单数
+- name: businessData_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/workspace/businessData
+  assert:
+    status_code: 401
+- name: businessData_token无效
+  priority: P1
+  request:
+    method: GET
+    path: /admin/workspace/businessData
+    headers:
+      token: invalid_token_12345
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: NOT_LOGIN
+- name: dishOverView_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/workspace/overviewDishes
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT COUNT(*) FROM dish WHERE status = 1
+    expect_column: 起售菜品数
+  - sql: SELECT COUNT(*) FROM dish WHERE status = 0
+    expect_column: 停售菜品数
+- name: dishOverView_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/workspace/overviewDishes
+  assert:
+    status_code: 401
+- name: dishOverView_token无效
+  priority: P1
+  request:
+    method: GET
+    path: /admin/workspace/overviewDishes
+    headers:
+      token: invalid_token_12345
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: NOT_LOGIN
+- name: orderOverView_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/workspace/overviewOrders
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT COUNT(*) FROM order WHERE status = 3 AND DATE(create_time) = CURDATE()
+    expect_column: 今日已完成订单
+  - sql: SELECT COUNT(*) FROM order WHERE status = 2 AND DATE(create_time) = CURDATE()
+    expect_column: 今日待派送订单
+- name: orderOverView_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/workspace/overviewOrders
+  assert:
+    status_code: 401
+- name: orderOverView_token无效
+  priority: P1
+  request:
+    method: GET
+    path: /admin/workspace/overviewOrders
+    headers:
+      token: invalid_token_12345
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: NOT_LOGIN
+- name: setmealOverView_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/workspace/overviewSetmeals
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT COUNT(*) FROM setmeal WHERE status = 1
+    expect_column: 起售套餐数
+  - sql: SELECT COUNT(*) FROM setmeal WHERE status = 0
+    expect_column: 停售套餐数
+- name: setmealOverView_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/workspace/overviewSetmeals
+  assert:
+    status_code: 401
+- name: setmealOverView_token无效
+  priority: P1
+  request:
+    method: GET
+    path: /admin/workspace/overviewSetmeals
+    headers:
+      token: invalid_token_12345
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: NOT_LOGIN

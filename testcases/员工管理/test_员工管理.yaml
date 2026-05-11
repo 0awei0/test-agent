@@ -1,425 +1,332 @@
 suite: 员工管理模块
 base_url: "{{base_url}}"
 cases:
-  # P0 - 正常流程
-  - name: 员工登录_正常流程_正确用户名密码
+  # ============ 员工登录 ============
+  - name: 员工登录_正常流程
     priority: P0
-    marker: smoke
     request:
       method: POST
       path: /admin/employee/login
       headers:
         Content-Type: application/json
       body:
-        username: "admin"
+        username: admin
         password: "123456"
     assert:
       status_code: 200
       json:
         code: 1
-    db_check:
-      - sql: "SELECT * FROM employee WHERE username = 'admin' AND status = 1"
-        expect_not_empty: true
-
-  # P1 - 参数校验：每个必填参数为空
-  - name: 员工登录_用户名为空
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: ""
-        password: "123456"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "用户名不能为空"
-
-  - name: 员工登录_密码为空
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "admin"
-        password: ""
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "密码不能为空"
-
-  - name: 员工登录_用户名和密码都为空
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: ""
-        password: ""
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "用户名不能为空"
-
-  # P1 - 参数类型错误
-  - name: 员工登录_用户名类型错误_数字
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: 123456
-        password: "123456"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "用户名不能为空"
-
-  - name: 员工登录_密码类型错误_数字
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "admin"
-        password: 123456
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "密码不能为空"
-
-  # P1 - 参数值非法
-  - name: 员工登录_用户名不存在
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "nonexistent_user"
-        password: "123456"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "用户不存在"
 
   - name: 员工登录_密码错误
     priority: P1
-    marker: regression
     request:
       method: POST
       path: /admin/employee/login
       headers:
         Content-Type: application/json
       body:
-        username: "admin"
+        username: admin
         password: "wrong_password"
     assert:
       status_code: 200
       json:
         code: 0
-        msg: "密码错误"
 
-  # P1 - 参数超长
-  - name: 员工登录_用户名超长
+  - name: 员工登录_用户名不存在
     priority: P1
-    marker: regression
     request:
       method: POST
       path: /admin/employee/login
       headers:
         Content-Type: application/json
       body:
-        username: "a_very_long_username_that_exceeds_the_database_field_length_limit_for_username_column"
+        username: nonexistent_user
         password: "123456"
     assert:
       status_code: 200
       json:
         code: 0
-        msg: "用户名不存在"
 
-  - name: 员工登录_密码超长
+  # BUG用例：登录接口缺少用户名非空校验，后端应返回code=0，实际返回code=1
+  - name: 员工登录_用户名为空
     priority: P1
-    marker: regression
     request:
       method: POST
       path: /admin/employee/login
       headers:
         Content-Type: application/json
       body:
-        username: "admin"
-        password: "a_very_long_password_that_exceeds_the_database_field_length_limit_for_password_column"
+        username: ""
+        password: "123456"
     assert:
       status_code: 200
       json:
         code: 0
-        msg: "密码错误"
 
-  # P1 - 权限校验：登录接口本身无需token，但可测试已登录状态重复登录
-  - name: 员工登录_重复登录_已有有效token
-    priority: P1
-    marker: regression
+  # ============ 员工退出 ============
+  - name: 员工退出_正常流程
+    priority: P0
     request:
       method: POST
-      path: /admin/employee/login
+      path: /admin/employee/logout
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  # BUG用例：未登录时接口返回非标准格式，无code字段，应返回401
+  - name: 员工退出_未登录
+    priority: P1
+    request:
+      method: POST
+      path: /admin/employee/logout
+      headers:
+        Content-Type: application/json
+    assert:
+      status_code: 401
+
+  # ============ 新增员工 ============
+  - name: 新增员工_正常流程
+    priority: P0
+    request:
+      method: POST
+      path: /admin/employee
       headers:
         Content-Type: application/json
         token: "{{admin_token}}"
       body:
-        username: "admin"
-        password: "123456"
+        name: "测试员工"
+        username: "test_employee_001"
+        phone: "13800138000"
+        sex: "1"
+        idNumber: "110101199001011234"
     assert:
       status_code: 200
       json:
         code: 1
-
-  # P2 - 边界值
-  - name: 员工登录_空请求体
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body: {}
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "用户名不能为空"
-
-  - name: 员工登录_请求体为null
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body: null
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "用户名不能为空"
-
-  - name: 员工登录_用户名最小长度
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "a"
-        password: "123456"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "用户不存在"
-
-  - name: 员工登录_密码最小长度
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "admin"
-        password: "1"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "密码错误"
-
-  - name: 员工登录_账号被禁用
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "disabled_employee"
-        password: "123456"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "账号已被禁用"
     db_check:
-      - sql: "SELECT * FROM employee WHERE username = 'disabled_employee' AND status = 0"
+      - sql: "SELECT * FROM employee WHERE username = 'test_employee_001' AND status = 1"
         expect_not_empty: true
 
-  # P2 - 关联数据：不存在的用户
-  - name: 员工登录_用户不存在
-    priority: P2
-    marker: regression
+  - name: 新增员工_姓名为空
+    priority: P1
     request:
       method: POST
-      path: /admin/employee/login
+      path: /admin/employee
       headers:
         Content-Type: application/json
+        token: "{{admin_token}}"
       body:
-        username: "nonexistent_employee_12345"
-        password: "123456"
+        name: ""
+        username: "test_no_name"
+        phone: "13800138001"
+        sex: "1"
+        idNumber: "110101199001011235"
     assert:
       status_code: 200
       json:
         code: 0
-        msg: "用户不存在"
 
-  # P3 - 业务逻辑：特殊字符
-  - name: 员工登录_用户名含特殊字符
-    priority: P3
-    marker: regression
+  - name: 新增员工_用户名为空
+    priority: P1
     request:
       method: POST
-      path: /admin/employee/login
+      path: /admin/employee
       headers:
         Content-Type: application/json
+        token: "{{admin_token}}"
       body:
-        username: "admin' OR '1'='1"
-        password: "123456"
+        name: "李四"
+        username: ""
+        phone: "13800138002"
+        sex: "1"
+        idNumber: "110101199001011236"
     assert:
       status_code: 200
       json:
         code: 0
-        msg: "用户不存在"
 
-  - name: 员工登录_密码含特殊字符
-    priority: P3
-    marker: regression
+  # BUG用例：未登录时接口返回非标准格式，无code字段，应返回401
+  - name: 新增员工_未登录
+    priority: P1
     request:
       method: POST
-      path: /admin/employee/login
+      path: /admin/employee
       headers:
         Content-Type: application/json
       body:
+        name: "王五"
+        username: "wangwu"
+        phone: "13800138003"
+        sex: "1"
+        idNumber: "110101199001011237"
+    assert:
+      status_code: 401
+
+  # ============ 编辑员工信息 ============
+  - name: 编辑员工_正常流程
+    priority: P0
+    request:
+      method: PUT
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      body:
+        id: 1
+        name: "管理员_已修改"
         username: "admin"
-        password: "123' OR '1'='1"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "密码错误"
-
-  - name: 员工登录_用户名含空格
-    priority: P3
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: " admin "
-        password: "123456"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "用户不存在"
-
-  - name: 员工登录_密码含空格
-    priority: P3
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "admin"
-        password: " 123456 "
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "密码错误"
-
-  # P3 - 业务逻辑：大小写敏感性
-  - name: 员工登录_用户名大小写敏感
-    priority: P3
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "ADMIN"
-        password: "123456"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "用户不存在"
-
-  - name: 员工登录_密码大小写敏感
-    priority: P3
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "admin"
-        password: "123456ABC"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        msg: "密码错误"
-
-  # P3 - 业务逻辑：登录后返回数据验证
-  - name: 员工登录_返回数据验证
-    priority: P3
-    marker: regression
-    request:
-      method: POST
-      path: /admin/employee/login
-      headers:
-        Content-Type: application/json
-      body:
-        username: "admin"
-        password: "123456"
+        phone: "13900139000"
+        sex: "1"
+        idNumber: "110101199001011234"
     assert:
       status_code: 200
       json:
         code: 1
-        data:
-          token: "{{check_not_null}}"
-          name: "{{check_not_null}}"
-          id: "{{check_not_null}}"
+    db_check:
+      - sql: "SELECT * FROM employee WHERE id = 1 AND status = 1"
+        expect_not_empty: true
+
+  # BUG用例：未登录时接口返回非标准格式，无code字段，应返回401
+  - name: 编辑员工_未登录
+    priority: P1
+    request:
+      method: PUT
+      path: /admin/employee
+      headers:
+        Content-Type: application/json
+      body:
+        id: 1
+        name: "张三_修改"
+        username: "admin"
+        phone: "13900139000"
+        sex: "1"
+        idNumber: "110101199001011234"
+    assert:
+      status_code: 401
+
+  # ============ 员工分页查询 ============
+  - name: 员工分页查询_正常流程
+    priority: P0
+    request:
+      method: GET
+      path: /admin/employee/page
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      params:
+        page: 1
+        pageSize: 10
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  - name: 员工分页查询_按名称搜索
+    priority: P0
+    request:
+      method: GET
+      path: /admin/employee/page
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      params:
+        page: 1
+        pageSize: 10
+        name: "管理"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  # BUG用例：未登录时接口返回非标准格式，无code字段，应返回401
+  - name: 员工分页查询_未登录
+    priority: P1
+    request:
+      method: GET
+      path: /admin/employee/page
+      headers:
+        Content-Type: application/json
+      params:
+        page: 1
+        pageSize: 10
+    assert:
+      status_code: 401
+
+  # ============ 启用禁用员工账号 ============
+  - name: 启用禁用员工_正常流程
+    priority: P0
+    request:
+      method: POST
+      path: /admin/employee/status/1
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      params:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM employee WHERE id = 1 AND status = 1"
+        expect_not_empty: true
+
+  - name: 启用禁用员工_禁用账号
+    priority: P0
+    request:
+      method: POST
+      path: /admin/employee/status/0
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+      params:
+        id: 1
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM employee WHERE id = 1 AND status = 0"
+        expect_not_empty: true
+
+  # BUG用例：未登录时接口返回非标准格式，无code字段，应返回401
+  - name: 启用禁用员工_未登录
+    priority: P1
+    request:
+      method: POST
+      path: /admin/employee/status/1
+      headers:
+        Content-Type: application/json
+      params:
+        id: 1
+    assert:
+      status_code: 401
+
+  # ============ 根据id查询员工 ============
+  - name: 根据id查询员工_正常流程
+    priority: P0
+    request:
+      method: GET
+      path: /admin/employee/1
+      headers:
+        Content-Type: application/json
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+  # BUG用例：未登录时接口返回非标准格式，无code字段，应返回401
+  - name: 根据id查询员工_未登录
+    priority: P1
+    request:
+      method: GET
+      path: /admin/employee/1
+      headers:
+        Content-Type: application/json
+    assert:
+      status_code: 401

@@ -20,9 +20,24 @@ from config.settings import settings
 _token_cache = {}
 
 
+def _unlock_admin():
+    """Unlock admin account (may be locked by wrong-password tests)"""
+    try:
+        from core.db_client import DBClient
+        db = DBClient()
+        db.execute('UPDATE employee SET status=1 WHERE username="admin"')
+        db.close()
+    except Exception:
+        pass
+
+
 def _login_and_get_token(username: str, password: str, login_path: str) -> str:
-    """Login and cache the token"""
+    """Login and cache the token. Always unlocks admin account first."""
     cache_key = f"{username}:{login_path}"
+
+    if username == "admin":
+        _unlock_admin()
+
     if cache_key in _token_cache:
         return _token_cache[cache_key]
 
@@ -37,13 +52,57 @@ def _login_and_get_token(username: str, password: str, login_path: str) -> str:
     return token
 
 
+def _refresh_admin_token():
+    """Force refresh admin token (after account was unlocked)"""
+    _token_cache.pop("admin:/admin/employee/login", None)
+    return _login_and_get_token("admin", "123456", "/admin/employee/login")
+
+
+def _get_user_token() -> str:
+    """Generate user JWT token directly (bypasses WeChat OAuth)"""
+    import jwt
+    import time
+
+    cache_key = "_user_jwt_token"
+    if cache_key in _token_cache:
+        return _token_cache[cache_key]
+
+    try:
+        from core.db_client import DBClient
+        db = DBClient()
+        rows = db.fetchall("SELECT id FROM user LIMIT 1")
+        db.close()
+        user_id = rows[0]["id"] if rows else 1
+    except Exception:
+        user_id = 1
+
+    payload = {"userId": user_id, "exp": int(time.time()) + 86400}
+    token = jwt.encode(payload, "itheima", algorithm="HS256")
+    _token_cache[cache_key] = token
+    logger.info(f"[Auth] Generated user JWT token for userId={user_id}")
+    return token
+
+
 def get_default_variables():
+    # Ensure admin account is unlocked before getting token
+    try:
+        from core.db_client import DBClient
+        db = DBClient()
+        db.execute('UPDATE employee SET status=1 WHERE username="admin"')
+        rows = db.fetchall("SELECT id FROM user LIMIT 1")
+        db.close()
+        user_id = rows[0]["id"] if rows else 1
+    except Exception:
+        user_id = 1
+
     admin_token = _login_and_get_token("admin", "123456", "/admin/employee/login")
-    user_token = _login_and_get_token("user", "123456", "/user/user/login")
+    user_token = _get_user_token()
+
     return {
         "base_url": settings.BASE_URL,
         "admin_token": admin_token,
         "user_token": user_token,
+        "user_id": user_id,
     }
 
 
@@ -137,15 +196,32 @@ def run_yaml_test_case(case: dict):
             params=params if params else None,
         )
 
+        # If 401 and using admin token, unlock account and retry
+        if response.get("_status_code") == 401 and "token" in headers:
+            logger.info(f"[Auth] Got 401, refreshing admin token...")
+            _unlock_admin()
+            new_token = _refresh_admin_token()
+            headers["token"] = new_token
+            variables["admin_token"] = new_token
+            response = client.request(
+                method=method,
+                path=path,
+                headers=headers,
+                json=body if body else None,
+                params=params if params else None,
+            )
+
         # 响应断言
         expected = case.get("assert", {})
+        actual_status = response.pop("_status_code", 0)
         if "status_code" in expected:
-            assert_status_code(200, expected["status_code"])
+            assert_status_code(actual_status, expected["status_code"])
         if "json" in expected:
             assert_json_contains(response, expected["json"])
 
         # 数据库断言
-        run_db_checks(case.get("db_check", []), db, name)
+        db_checks = replace_variables(case.get("db_check", []), variables)
+        run_db_checks(db_checks, db, name)
 
     db.close()
     return response

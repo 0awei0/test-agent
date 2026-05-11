@@ -1,0 +1,1193 @@
+suite: 用户与地址管理模块
+base_url: '{{base_url}}'
+cases:
+- name: 微信登录_正常流程
+  priority: P0
+  marker: smoke
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '{{valid_wx_code}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 微信登录_code为空
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code字段缺失
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body: {}
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code为无效值
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: invalid_code_12345
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code超长字符串
+  priority: P2
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code包含特殊字符
+  priority: P2
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '!@#$%^&*()'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_code为SQL注入尝试
+  priority: P2
+  marker: security
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: 1' OR '1'='1
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_重复登录
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '{{valid_wx_code}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 退出登录_正常流程
+  priority: P0
+  marker: smoke
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 退出登录_未登录状态
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 退出登录_token无效
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: invalid_token_12345
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_token为空字符串
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_重复退出
+  priority: P2
+  marker: regression
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 新增地址_正常流程_完整参数
+  priority: P0
+  marker: smoke
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+      label: 公司
+      isDefault: 0
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE consignee = '张三' AND phone = '13800138000'
+    expect_not_empty: true
+- name: 新增地址_正常流程_设为默认地址
+  priority: P0
+  marker: smoke
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 李四
+      phone: '13900139000'
+      sex: 女
+      provinceCode: '310000'
+      provinceName: 上海市
+      cityCode: '310100'
+      cityName: 上海市
+      districtCode: '310101'
+      districtName: 黄浦区
+      detail: 南京路步行街100号
+      label: 家
+      isDefault: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE is_default = 1 AND user_id = {{user_id}}
+    expect_count: 1
+- name: 新增地址_收货人为空
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: ''
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_收货人字段缺失
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_手机号为空
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: ''
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_手机号格式错误_少于11位
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '1380013800'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_手机号格式错误_多于11位
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '138001380000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_手机号包含字母
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: 138abc8000
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_性别为空
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: ''
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_省市区信息不完整
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: ''
+      provinceName: ''
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_详细地址为空
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_未登录
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 401
+- name: 新增地址_token无效
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: invalid_token
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_收货人超长_50字符
+  priority: P2
+  marker: boundary
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_标签超长_10字符
+  priority: P2
+  marker: boundary
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+      label: 公司家庭学校宿舍地址
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_详细地址超长
+  priority: P2
+  marker: boundary
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 这是详细地址这是详细地址这是详细地址这是详细地址这是详细地址这是详细地址这是详细地址这是详细地址这是详细地址这是详细地址
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 新增地址_边界值_姓名1字符
+  priority: P2
+  marker: boundary
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 修改地址_正常流程
+  priority: P0
+  marker: smoke
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{address_id}}'
+      consignee: 张三_修改
+      phone: '13800138001'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场2号
+      label: 公司
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = {{address_id}}
+    expect:
+      consignee: 张三_修改
+      phone: '13800138001'
+- name: 修改地址_只修改收货人
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{address_id}}'
+      consignee: 王五
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 修改地址_只修改手机号
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{address_id}}'
+      consignee: 张三
+      phone: '13900139000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 修改地址_id为空
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 修改地址_id不存在
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: 999999999
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 修改地址_修改他人地址_越权
+  priority: P1
+  marker: security
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{other_user_address_id}}'
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 修改地址_未登录
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+    body:
+      id: '{{address_id}}'
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 401
+- name: 修改地址_手机号格式错误
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{address_id}}'
+      consignee: 张三
+      phone: '12345'
+      sex: 男
+      provinceCode: '110000'
+      provinceName: 北京市
+      cityCode: '110100'
+      cityName: 北京市
+      districtCode: '110101'
+      districtName: 东城区
+      detail: 天安门广场1号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 删除地址_正常流程
+  priority: P0
+  marker: smoke
+  request:
+    method: DELETE
+    path: /user/addressBook?id={{address_id}}
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = {{address_id}}
+    expect_empty: true
+- name: 删除地址_id为空
+  priority: P1
+  marker: regression
+  request:
+    method: DELETE
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 删除地址_id不存在
+  priority: P1
+  marker: regression
+  request:
+    method: DELETE
+    path: /user/addressBook?id=999999999
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 删除地址_删除他人地址_越权
+  priority: P1
+  marker: security
+  request:
+    method: DELETE
+    path: /user/addressBook?id={{other_user_address_id}}
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 删除地址_未登录
+  priority: P1
+  marker: regression
+  request:
+    method: DELETE
+    path: /user/addressBook?id={{address_id}}
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 删除地址_删除默认地址后无默认地址
+  priority: P1
+  marker: regression
+  request:
+    method: DELETE
+    path: /user/addressBook?id={{default_address_id}}
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE user_id = {{user_id}} AND is_default = 1
+    expect_empty: true
+- name: 获取默认地址_正常流程_有默认地址
+  priority: P0
+  marker: smoke
+  request:
+    method: GET
+    path: /user/addressBook/default
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 获取默认地址_无默认地址
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/default
+    headers:
+      authentication: '{{user_token_no_default}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 获取默认地址_未登录
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/default
+  assert:
+    status_code: 401
+- name: 获取默认地址_token无效
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/default
+    headers:
+      authentication: invalid_token
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 设置默认地址_正常流程
+  priority: P0
+  marker: smoke
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{address_id}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = {{address_id}}
+    expect:
+      is_default: 1
+  - sql: SELECT * FROM address_book WHERE user_id = {{user_id}} AND is_default = 1
+    expect_count: 1
+- name: 设置默认地址_切换默认地址
+  priority: P0
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{address_id_2}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = {{address_id_2}}
+    expect:
+      is_default: 1
+  - sql: SELECT * FROM address_book WHERE id = {{address_id}}
+    expect:
+      is_default: 0
+- name: 设置默认地址_id为空
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body: {}
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 设置默认地址_id不存在
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: 999999999
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 设置默认地址_设置他人地址为默认_越权
+  priority: P1
+  marker: security
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{other_user_address_id}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 设置默认地址_未登录
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+    body:
+      id: '{{address_id}}'
+  assert:
+    status_code: 401
+- name: 设置默认地址_重复设置同一地址为默认
+  priority: P2
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{already_default_address_id}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 获取地址列表_正常流程_有数据
+  priority: P0
+  marker: smoke
+  request:
+    method: GET
+    path: /user/addressBook/list
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 获取地址列表_新用户无地址
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/list
+    headers:
+      authentication: '{{user_token_no_address}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 获取地址列表_未登录
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/list
+  assert:
+    status_code: 401
+- name: 获取地址列表_token无效
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/list
+    headers:
+      authentication: invalid_token
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 获取地址列表_只返回当前用户地址_数据隔离
+  priority: P1
+  marker: security
+  request:
+    method: GET
+    path: /user/addressBook/list
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 获取地址列表_返回数据包含默认地址标记
+  priority: P2
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/list
+    headers:
+      authentication: '{{user_token_with_default}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 根据ID获取地址_正常流程
+  priority: P0
+  marker: smoke
+  request:
+    method: GET
+    path: /user/addressBook/{{address_id}}
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = {{address_id}}
+    expect_not_empty: true
+- name: 根据ID获取地址_获取他人地址_越权
+  priority: P1
+  marker: security
+  request:
+    method: GET
+    path: /user/addressBook/{{other_user_address_id}}
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 根据ID获取地址_ID不存在
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/999999999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 根据ID获取地址_未登录
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/{{address_id}}
+  assert:
+    status_code: 401
+- name: 根据ID获取地址_ID为0
+  priority: P2
+  marker: boundary
+  request:
+    method: GET
+    path: /user/addressBook/0
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 根据ID获取地址_ID为负数
+  priority: P2
+  marker: boundary
+  request:
+    method: GET
+    path: /user/addressBook/-1
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 根据ID获取地址_ID为超大值
+  priority: P2
+  marker: boundary
+  request:
+    method: GET
+    path: /user/addressBook/999999999999999999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 根据ID获取地址_ID为字符串
+  priority: P2
+  marker: boundary
+  request:
+    method: GET
+    path: /user/addressBook/abc
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 400

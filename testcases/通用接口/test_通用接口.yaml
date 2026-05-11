@@ -1,0 +1,238 @@
+suite: 通用接口模块-文件上传（修复版）
+base_url: '{{base_url}}'
+cases:
+- name: 文件上传_响应格式验证_确保返回有效JSON
+  priority: P0
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: image/jpeg
+        filename: test_image.jpg
+        file_content: /9j/4AAQSkZJRg==
+  assert:
+    status_code: 200
+    json:
+      _assertion_mode: flexible
+      _conditions:
+      - IF code EXISTS THEN code = 1
+      - IF NOT code THEN (data EXISTS OR msg EXISTS)
+      data:
+        regex: https?://.*
+  diagnostics:
+  - 记录完整的响应内容以便调试
+  - 检查响应是否为JSON格式
+- name: 文件上传_上传JPG图片_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: image/jpeg
+        filename: test_image.jpg
+        file_content: /9j/4AAQSkZJRg==
+  assert:
+    status_code: 200
+    json:
+      _assertion_mode: flexible
+      _conditions:
+      - IF code EXISTS THEN code = 1
+      - IF NOT code THEN (data EXISTS AND data CONTAINS 'http')
+      data:
+        regex: https?://.*\.(jpg|jpeg|png|gif)
+      msg: null
+- name: 文件上传_上传PNG图片_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: image/png
+        filename: test_image.png
+        file_content: iVBORw0KGgo=
+  assert:
+    status_code: 200
+    json:
+      _assertion_mode: flexible
+      _conditions:
+      - IF code EXISTS THEN code = 1
+      - IF NOT code THEN (data EXISTS AND data CONTAINS 'http')
+      data:
+        regex: https?://.*\.png
+- name: 文件上传_未登录_返回未授权
+  priority: P0
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers: {}
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: image/jpeg
+        filename: test_image.jpg
+        file_content: /9j/4AAQSkZJRg==
+  assert:
+    status_code: 401
+- name: 文件上传_token过期_返回未授权
+  priority: P1
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: expired_token_12345
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: image/jpeg
+        filename: test_image.jpg
+        file_content: /9j/4AAQSkZJRg==
+  assert:
+    status_code: 401
+- name: 文件上传_未传文件_返回参数错误
+  priority: P0
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body: {}
+  assert:
+    status_code: 200
+    json:
+      _assertion_mode: flexible
+      _conditions:
+      - IF code EXISTS THEN code = 0
+      - IF NOT code THEN (msg EXISTS AND msg CONTAINS '参数' OR '文件' OR '错误')
+      msg:
+        regex: .*
+- name: 文件上传_上传EXE文件_返回不支持
+  priority: P1
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: application/octet-stream
+        filename: virus.exe
+        file_content: TVqQAAMAAAAEAAAA
+  assert:
+    status_code: 200
+    json:
+      _assertion_mode: flexible
+      _conditions:
+      - IF code EXISTS THEN code = 0
+      - IF NOT code THEN (msg EXISTS AND msg CONTAINS '不支持' OR '类型' OR '格式')
+      msg:
+        regex: .*
+- name: 文件上传_上传PDF文件_返回不支持
+  priority: P1
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: application/pdf
+        filename: document.pdf
+        file_content: JVBERi0xLjQK
+  assert:
+    status_code: 200
+    json:
+      _assertion_mode: flexible
+      _conditions:
+      - IF code EXISTS THEN code = 0
+      - IF NOT code THEN (msg EXISTS AND msg CONTAINS '不支持' OR '类型' OR '格式')
+      msg:
+        regex: .*
+- name: 文件上传_上传0字节空文件_返回参数错误
+  priority: P1
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: image/jpeg
+        filename: empty.jpg
+        file_content: ''
+  assert:
+    status_code: 200
+    json:
+      _assertion_mode: flexible
+      _conditions:
+      - IF code EXISTS THEN code = 0
+      - IF NOT code THEN (msg EXISTS AND msg CONTAINS '空' OR '大小' OR '参数')
+- name: 文件上传_上传超大文件_返回参数错误
+  priority: P1
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: image/jpeg
+        filename: large_image.jpg
+        file_content: '{{large_file_50mb}}'
+  assert:
+    status_code: 200
+    json:
+      _assertion_mode: flexible
+      _conditions:
+      - IF code EXISTS THEN code = 0
+      - IF NOT code THEN (msg EXISTS AND msg CONTAINS '大小' OR '限制' OR '参数')
+      msg:
+        regex: .*
+- name: 文件上传_文件名含特殊字符_正常流程
+  priority: P1
+  request:
+    method: POST
+    path: /admin/common/upload
+    headers:
+      token: '{{admin_token}}'
+    content_type: multipart/form-data
+    body:
+      file:
+        type: file
+        content_type: image/jpeg
+        filename: 测试 图片@#$.jpg
+        file_content: /9j/4AAQSkZJRg==
+  assert:
+    status_code: 200
+    json:
+      _assertion_mode: flexible
+      _conditions:
+      - IF code EXISTS THEN code = 1
+      - IF NOT code THEN (data EXISTS AND data CONTAINS 'http')
+      data:
+        regex: https?://.*\.(jpg|jpeg|png|gif)

@@ -1,0 +1,147 @@
+suite: 工作台模块
+base_url: "{{base_url}}"
+cases:
+  # ========== 一、经营数据接口 ==========
+  - name: businessData_正常流程_获取今日营业数据
+    priority: P0
+    request:
+      method: GET
+      path: /admin/workspace/businessData
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          turnover: {}
+          orderCount: {}
+          orderTotalAmount: {}
+          newUsers: {}
+
+  - name: businessData_未登录_返回未授权
+    priority: P0
+    request:
+      method: GET
+      path: /admin/workspace/businessData
+      headers: {}
+    assert:
+      status_code: 401
+
+  - name: businessData_无效token_返回未授权
+    priority: P1
+    request:
+      method: GET
+      path: /admin/workspace/businessData
+      headers:
+        token: "invalid_token_123456"
+    assert:
+      status_code: 401
+
+  # ========== 二、菜品总览接口 ==========
+  - name: overviewDishes_正常流程_获取菜品概览数据
+    priority: P0
+    request:
+      method: GET
+      path: /admin/workspace/overviewDishes
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          sold: {}
+          discontinued: {}
+
+  - name: overviewDishes_未登录_返回未授权
+    priority: P0
+    request:
+      method: GET
+      path: /admin/workspace/overviewDishes
+      headers: {}
+    assert:
+      status_code: 401
+
+  - name: overviewDishes_无效token_返回未授权
+    priority: P1
+    request:
+      method: GET
+      path: /admin/workspace/overviewDishes
+      headers:
+        token: "invalid_token_123456"
+    assert:
+      status_code: 401
+
+  # ========== 三、订单总览接口 ==========
+  - name: overviewOrders_正常流程_获取订单概览数据
+    priority: P0
+    request:
+      method: GET
+      path: /admin/workspace/overviewOrders
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          waitingOrders: {}
+          deliveredOrders: {}
+          completedOrders: {}
+          cancelledOrders: {}
+          totalOrders: {}
+
+  - name: overviewOrders_未登录_返回未授权
+    priority: P0
+    request:
+      method: GET
+      path: /admin/workspace/overviewOrders
+      headers: {}
+    assert:
+      status_code: 401
+
+  - name: overviewOrders_无效token_返回未授权
+    priority: P1
+    request:
+      method: GET
+      path: /admin/workspace/overviewOrders
+      headers:
+        token: "invalid_token_123456"
+    assert:
+      status_code: 401
+
+  # ========== 四、套餐总览接口 ==========
+  - name: overviewSetmeals_正常流程_获取套餐概览数据
+    priority: P0
+    request:
+      method: GET
+      path: /admin/workspace/overviewSetmeals
+      headers:
+        token: "{{admin_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+        data:
+          sold: {}
+          discontinued: {}
+
+  - name: overviewSetmeals_未登录_返回未授权
+    priority: P0
+    request:
+      method: GET
+      path: /admin/workspace/overviewSetmeals
+      headers: {}
+    assert:
+      status_code: 401
+
+  - name: overviewSetmeals_无效token_返回未授权
+    priority: P1
+    request:
+      method: GET
+      path: /admin/workspace/overviewSetmeals
+      headers:
+        token: "invalid_token_123456"
+    assert:
+      status_code: 401

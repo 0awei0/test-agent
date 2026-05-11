@@ -1,0 +1,133 @@
+suite: 报表统计模块
+base_url: '{{base_url}}'
+cases:
+- name: 订单统计_正常查询日期范围
+  priority: P0
+  description: 验证订单统计接口在指定日期范围内返回正确的统计数据。注意：当前接口存在 bug（code 字段为 None），待修复后此用例应通过。
+  request:
+    method: GET
+    path: /admin/report/ordersStatistics
+    headers:
+      token: '{{admin_token}}'
+    query:
+      begin: '2024-01-01'
+      end: '2024-12-31'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        nameList:
+          type: array
+        orderCountList:
+          type: array
+    response_time_max: 5000
+- name: 订单统计_未登录
+  priority: P0
+  description: 未登录访问订单统计接口，鉴权中间件应拦截并返回 401
+  request:
+    method: GET
+    path: /admin/report/ordersStatistics
+    query:
+      begin: '2024-01-01'
+      end: '2024-12-31'
+  assert:
+    status_code: 401
+- name: 销量Top10_正常查询日期范围
+  priority: P0
+  description: 验证销量Top10接口在指定日期范围内返回正确的统计数据。注意：当前接口存在 bug（code 字段为 None），待修复后此用例应通过。
+  request:
+    method: GET
+    path: /admin/report/top10
+    headers:
+      token: '{{admin_token}}'
+    query:
+      begin: '2024-01-01'
+      end: '2024-12-31'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        nameList:
+          type: array
+        numberList:
+          type: array
+    response_time_max: 5000
+- name: 销量Top10_未登录
+  priority: P0
+  description: 未登录访问销量Top10接口，鉴权中间件应拦截并返回 401
+  request:
+    method: GET
+    path: /admin/report/top10
+    query:
+      begin: '2024-01-01'
+      end: '2024-12-31'
+  assert:
+    status_code: 401
+- name: 营业额统计_正常查询日期范围
+  priority: P0
+  description: 验证营业额统计接口在指定日期范围内返回正确的统计数据。注意：当前接口存在 bug（code 字段为 None），待修复后此用例应通过。
+  request:
+    method: GET
+    path: /admin/report/turnoverStatistics
+    headers:
+      token: '{{admin_token}}'
+    query:
+      begin: '2024-01-01'
+      end: '2024-12-31'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        nameList:
+          type: array
+        turnoverList:
+          type: array
+    response_time_max: 5000
+- name: 营业额统计_未登录
+  priority: P0
+  description: 未登录访问营业额统计接口，鉴权中间件应拦截并返回 401
+  request:
+    method: GET
+    path: /admin/report/turnoverStatistics
+    query:
+      begin: '2024-01-01'
+      end: '2024-12-31'
+  assert:
+    status_code: 401
+- name: 用户统计_正常查询日期范围
+  priority: P0
+  description: 验证用户统计接口在指定日期范围内返回正确的统计数据。注意：当前接口存在 bug（code 字段为 None），待修复后此用例应通过。
+  request:
+    method: GET
+    path: /admin/report/userStatistics
+    headers:
+      token: '{{admin_token}}'
+    query:
+      begin: '2024-01-01'
+      end: '2024-12-31'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        nameList:
+          type: array
+        totalUserList:
+          type: array
+        newUserList:
+          type: array
+    response_time_max: 5000
+- name: 用户统计_未登录
+  priority: P0
+  description: 未登录访问用户统计接口，鉴权中间件应拦截并返回 401
+  request:
+    method: GET
+    path: /admin/report/userStatistics
+    query:
+      begin: '2024-01-01'
+      end: '2024-12-31'
+  assert:
+    status_code: 401

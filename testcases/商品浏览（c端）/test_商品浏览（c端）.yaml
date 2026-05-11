@@ -1,0 +1,146 @@
+suite: 商品浏览C端模块
+base_url: '{{base_url}}'
+cases:
+- name: 环境检查_服务可用性
+  priority: P0
+  request:
+    method: GET
+    path: /user/shop/status
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 查询分类_获取全部分类
+  priority: P0
+  request:
+    method: GET
+    path: /user/category/list
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        $type: array
+        $min_length: 1
+- name: 查询分类_按类型筛选
+  priority: P1
+  request:
+    method: GET
+    path: /user/category/list
+    params:
+      type: 1
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        $type: array
+- name: 查询菜品_按分类ID查询
+  priority: P0
+  request:
+    method: GET
+    path: /user/dish/list
+    params:
+      categoryId: 1
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        $type: array
+        $min_length: 1
+- name: 查询菜品_查询所有菜品
+  priority: P0
+  request:
+    method: GET
+    path: /user/dish/list
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        $type: array
+- name: 查询套餐_按分类ID查询
+  priority: P0
+  request:
+    method: GET
+    path: /user/setmeal/list
+    params:
+      categoryId: 15
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        $type: array
+        $min_length: 1
+- name: 查询套餐_查询所有套餐
+  priority: P0
+  request:
+    method: GET
+    path: /user/setmeal/list
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        $type: array
+- name: 查询套餐菜品详情_正常查询
+  priority: P0
+  request:
+    method: GET
+    path: /user/setmeal/dish/1
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        $type: array
+        $min_length: 1
+- name: 查询套餐菜品详情_不存在的套餐ID
+  priority: P1
+  request:
+    method: GET
+    path: /user/setmeal/dish/99999
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        $type: array
+        $length: 0
+- name: 查询分类_未登录访问
+  priority: P1
+  request:
+    method: GET
+    path: /user/category/list
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401

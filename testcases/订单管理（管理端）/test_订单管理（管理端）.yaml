@@ -1,0 +1,314 @@
+suite: 订单管理模块
+base_url: '{{base_url}}'
+cases:
+- name: 订单确认_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/confirm
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: '{{pending_order_id}}'
+      status: 2
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status FROM orders WHERE id = {{pending_order_id}}
+    expect_value:
+      status: 2
+- name: 订单确认_订单ID不存在
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/confirm
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 999999999
+      status: 2
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 订单确认_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/confirm
+    headers:
+      Content-Type: application/json
+    body:
+      id: 1
+      status: 2
+  assert:
+    status_code: 401
+- name: 订单拒绝_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/rejection
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: '{{confirmed_order_id}}'
+      rejectionReason: 商家繁忙，暂时无法接单
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status, rejection_reason FROM orders WHERE id = {{confirmed_order_id}}
+    expect_value:
+      status: 4
+      rejection_reason: 商家繁忙，暂时无法接单
+- name: 订单拒绝_拒绝原因为空
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/rejection
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: '{{confirmed_order_id}}'
+      rejectionReason: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 订单拒绝_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/rejection
+    headers:
+      Content-Type: application/json
+    body:
+      id: 1
+      rejectionReason: 商家繁忙
+  assert:
+    status_code: 401
+- name: 订单派送_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/delivery/{{confirmed_order_id}}
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status FROM orders WHERE id = {{confirmed_order_id}}
+    expect_value:
+      status: 3
+- name: 订单派送_订单ID不存在
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/delivery/999999999
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 订单不存在
+- name: 订单派送_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/delivery/1
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 订单完成_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/complete/{{delivery_order_id}}
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status FROM orders WHERE id = {{delivery_order_id}}
+    expect_value:
+      status: 4
+- name: 订单完成_订单ID不存在
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/complete/999999999
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 订单不存在
+- name: 订单完成_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/complete/1
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 订单取消_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/cancel
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: '{{cancelable_order_id}}'
+      cancelReason: 客户要求取消
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status, cancel_reason FROM orders WHERE id = {{cancelable_order_id}}
+    expect_value:
+      status: 6
+      cancel_reason: 客户要求取消
+- name: 订单取消_取消原因为空
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/cancel
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: '{{cancelable_order_id}}'
+      cancelReason: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 订单取消_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/cancel
+    headers:
+      Content-Type: application/json
+    body:
+      id: 1
+      cancelReason: 客户要求取消
+  assert:
+    status_code: 401
+- name: 订单条件搜索_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 订单条件搜索_按订单号搜索
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      number: '{{order_number}}'
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 订单条件搜索_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers: {}
+    query:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 401
+- name: 订单详情_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/order/details/{{existing_order_id}}
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        id: '{{existing_order_id}}'
+- name: 订单详情_订单ID不存在
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/details/999999999
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 订单详情_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/details/1
+    headers: {}
+  assert:
+    status_code: 401
+- name: 订单统计_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/order/statistics
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        toBeConfirmed: '>=0'
+        confirmed: '>=0'
+        deliveryInProgress: '>=0'
+- name: 订单统计_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/statistics
+    headers: {}
+  assert:
+    status_code: 401

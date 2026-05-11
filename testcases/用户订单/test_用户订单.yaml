@@ -1,0 +1,318 @@
+suite: 用户订单模块
+base_url: '{{base_url}}'
+cases:
+- name: 订单服务健康检查
+  priority: P0
+  description: 验证订单服务是否可达，如果失败则整个用例集不可执行
+  request:
+    method: GET
+    path: /user/shop/status
+    headers: {}
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data: 1
+- name: 提交订单_正常流程
+  priority: P0
+  description: 购物车有商品，提交订单成功
+  preconditions:
+  - 步骤: 先通过 POST /user/shoppingCart/add 添加商品到购物车
+  request:
+    method: POST
+    path: /user/order/submit
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      addressBookId: 1
+      estimatedDeliveryTime: '2025-12-31 12:00:00'
+      payMethod: 1
+      packAmount: 0
+      tablewareNumber: 2
+      tablewareStatus: 0
+      remark: 不要辣
+      deliveryStatus: 0
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: success
+  db_check:
+  - sql: SELECT * FROM orders ORDER BY id DESC LIMIT 1
+    expect_not_empty: true
+    expect:
+      address_book_id: 1
+      pay_method: 1
+- name: 提交订单_未登录
+  priority: P1
+  description: 不传token，应返回未登录
+  request:
+    method: POST
+    path: /user/order/submit
+    headers:
+      Content-Type: application/json
+    body:
+      addressBookId: 1
+      estimatedDeliveryTime: '2025-12-31 12:00:00'
+      payMethod: 1
+  assert:
+    status_code: 401
+- name: 提交订单_地址为空
+  priority: P1
+  description: addressBookId不传，应提示地址缺失
+  request:
+    method: POST
+    path: /user/order/submit
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      estimatedDeliveryTime: '2025-12-31 12:00:00'
+      payMethod: 1
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 订单支付_正常流程
+  priority: P0
+  description: 使用已提交的订单进行支付
+  preconditions:
+  - 步骤: 先通过提交订单获取orderNumber
+  request:
+    method: PUT
+    path: /user/order/payment
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      orderNumber: '{{order_number}}'
+      payMethod: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status FROM orders WHERE order_number = '{{order_number}}'
+    expect:
+      status: 2
+- name: 订单支付_未登录
+  priority: P1
+  description: 不传token，应返回未登录
+  request:
+    method: PUT
+    path: /user/order/payment
+    headers:
+      Content-Type: application/json
+    body:
+      orderNumber: NOT_EXIST_12345
+      payMethod: 1
+  assert:
+    status_code: 401
+- name: 订单支付_订单号不存在
+  priority: P1
+  description: 传入不存在的订单号
+  request:
+    method: PUT
+    path: /user/order/payment
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      orderNumber: NOT_EXIST_99999999
+      payMethod: 1
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 取消订单_正常流程
+  priority: P0
+  description: 取消一个待支付的订单
+  preconditions:
+  - 步骤: 先提交一个订单获取id（不支付）
+  request:
+    method: PUT
+    path: /user/order/cancel/{{order_id}}
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status FROM orders WHERE id = {{order_id}}
+    expect:
+      status: 6
+- name: 取消订单_未登录
+  priority: P1
+  description: 不传token，应返回未登录
+  request:
+    method: PUT
+    path: /user/order/cancel/1
+    headers: {}
+  assert:
+    status_code: 401
+- name: 取消订单_订单不存在
+  priority: P1
+  description: 取消一个不存在的订单ID
+  request:
+    method: PUT
+    path: /user/order/cancel/99999999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 历史订单_正常分页查询
+  priority: P0
+  description: 按默认分页参数查询历史订单
+  request:
+    method: GET
+    path: /user/order/historyOrders
+    headers:
+      authentication: '{{user_token}}'
+    params:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data.total: '>0'
+- name: 历史订单_按状态筛选
+  priority: P0
+  description: 按status=1（待支付）筛选订单
+  request:
+    method: GET
+    path: /user/order/historyOrders
+    headers:
+      authentication: '{{user_token}}'
+    params:
+      page: 1
+      pageSize: 10
+      status: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 历史订单_未登录
+  priority: P1
+  description: 不传token，应返回未登录
+  request:
+    method: GET
+    path: /user/order/historyOrders
+    headers: {}
+  assert:
+    status_code: 401
+- name: 订单详情_正常流程
+  priority: P0
+  description: 查询一个已存在订单的详情
+  request:
+    method: GET
+    path: /user/order/orderDetail/{{order_id}}
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data.id: '{{order_id}}'
+- name: 订单详情_未登录
+  priority: P1
+  description: 不传token，应返回未登录
+  request:
+    method: GET
+    path: /user/order/orderDetail/1
+    headers: {}
+  assert:
+    status_code: 401
+- name: 订单详情_订单不存在
+  priority: P1
+  description: 查询不存在的订单ID
+  request:
+    method: GET
+    path: /user/order/orderDetail/99999999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 催单_正常流程
+  priority: P0
+  description: 对待派送的订单进行催单
+  preconditions:
+  - 步骤: 需要一个已支付(status=2)或待派送(status=3)的订单
+  request:
+    method: GET
+    path: /user/order/reminder/{{paid_order_id}}
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT id FROM orders WHERE id = {{paid_order_id}}
+    expect_not_empty: true
+- name: 催单_未登录
+  priority: P1
+  description: 不传token，应返回未登录
+  request:
+    method: GET
+    path: /user/order/reminder/1
+    headers: {}
+  assert:
+    status_code: 401
+- name: 催单_订单不存在
+  priority: P1
+  description: 对不存在的订单催单
+  request:
+    method: GET
+    path: /user/order/reminder/99999999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 再来一单_正常流程
+  priority: P0
+  description: 基于历史订单重新下单
+  preconditions:
+  - 步骤: 需要一个已完成的订单(status=5)
+  request:
+    method: POST
+    path: /user/order/repetition/{{completed_order_id}}
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT COUNT(*) AS cnt FROM shopping_cart WHERE user_id = (SELECT user_id
+      FROM orders WHERE id = {{completed_order_id}})
+    expect_not_empty: true
+- name: 再来一单_未登录
+  priority: P1
+  description: 不传token，应返回未登录
+  request:
+    method: POST
+    path: /user/order/repetition/1
+    headers: {}
+  assert:
+    status_code: 401
+- name: 再来一单_订单不存在
+  priority: P1
+  description: 基于不存在的订单再来一单
+  request:
+    method: POST
+    path: /user/order/repetition/99999999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0

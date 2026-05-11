@@ -1,0 +1,228 @@
+suite: 数据统计(后台)模块
+base_url: '{{base_url}}'
+cases:
+- name: 营业额统计_正常查询最近7天
+  priority: P0
+  request:
+    method: GET
+    path: /admin/report/turnoverStatistics
+    headers:
+      token: '{{admin_token}}'
+    params:
+      begin: '2024-01-01'
+      end: '2024-01-07'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        turnoverList: '{{not_null}}'
+        dateList: '{{not_null}}'
+- name: 营业额统计_不传日期参数
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/turnoverStatistics
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        turnoverList: '{{not_null}}'
+        dateList: '{{not_null}}'
+- name: 营业额统计_未登录无token
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/turnoverStatistics
+    params:
+      begin: '2024-01-01'
+      end: '2024-01-07'
+  assert:
+    status_code: 401
+- name: 营业额统计_结束日期早于开始日期
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/turnoverStatistics
+    headers:
+      token: '{{admin_token}}'
+    params:
+      begin: '2024-01-31'
+      end: '2024-01-01'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 订单统计_正常查询最近7天
+  priority: P0
+  request:
+    method: GET
+    path: /admin/report/ordersStatistics
+    headers:
+      token: '{{admin_token}}'
+    params:
+      begin: '2024-01-01'
+      end: '2024-01-07'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        orderCountList: '{{not_null}}'
+        dateList: '{{not_null}}'
+        totalOrderCount: '{{not_null}}'
+        validOrderCount: '{{not_null}}'
+        orderCompletionRate: '{{not_null}}'
+- name: 订单统计_不传日期参数
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/ordersStatistics
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        orderCountList: '{{not_null}}'
+        dateList: '{{not_null}}'
+- name: 订单统计_未登录无token
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/ordersStatistics
+    params:
+      begin: '2024-01-01'
+      end: '2024-01-07'
+  assert:
+    status_code: 401
+- name: 订单统计_结束日期早于开始日期
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/ordersStatistics
+    headers:
+      token: '{{admin_token}}'
+    params:
+      begin: '2024-01-31'
+      end: '2024-01-01'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 用户统计_正常查询最近7天
+  priority: P0
+  request:
+    method: GET
+    path: /admin/report/userStatistics
+    headers:
+      token: '{{admin_token}}'
+    params:
+      begin: '2024-01-01'
+      end: '2024-01-07'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        newUserList: '{{not_null}}'
+        dateList: '{{not_null}}'
+        totalUserCount: '{{not_null}}'
+        newUserCount: '{{not_null}}'
+- name: 用户统计_不传日期参数
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/userStatistics
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        newUserList: '{{not_null}}'
+        dateList: '{{not_null}}'
+- name: 用户统计_未登录无token
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/userStatistics
+    params:
+      begin: '2024-01-01'
+      end: '2024-01-07'
+  assert:
+    status_code: 401
+- name: 用户统计_结束日期早于开始日期
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/userStatistics
+    headers:
+      token: '{{admin_token}}'
+    params:
+      begin: '2024-01-31'
+      end: '2024-01-01'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 销量TOP10_正常查询最近7天
+  priority: P0
+  request:
+    method: GET
+    path: /admin/report/top10
+    headers:
+      token: '{{admin_token}}'
+    params:
+      begin: '2024-01-01'
+      end: '2024-01-07'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        nameList: '{{not_null}}'
+        numberList: '{{not_null}}'
+- name: 销量TOP10_不传日期参数
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/top10
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        nameList: '{{not_null}}'
+        numberList: '{{not_null}}'
+- name: 销量TOP10_未登录无token
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/top10
+    params:
+      begin: '2024-01-01'
+      end: '2024-01-07'
+  assert:
+    status_code: 401
+- name: 销量TOP10_结束日期早于开始日期
+  priority: P1
+  request:
+    method: GET
+    path: /admin/report/top10
+    headers:
+      token: '{{admin_token}}'
+    params:
+      begin: '2024-01-31'
+      end: '2024-01-01'
+  assert:
+    status_code: 200
+    json:
+      code: 0

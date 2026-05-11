@@ -1,0 +1,397 @@
+suite: 订单管理(后台)
+base_url: '{{base_url}}'
+cases:
+- name: 订单确认_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/confirm
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 1
+      status: 2
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status FROM orders WHERE id = 1
+    expect_value:
+      status: 2
+- name: 订单确认_不存在的订单ID
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/confirm
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 999999
+      status: 2
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 订单确认_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/confirm
+    headers:
+      Content-Type: application/json
+    body:
+      id: 1
+      status: 2
+  assert:
+    status_code: 401
+- name: 订单驳回_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/rejection
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 2
+      rejectionReason: 菜品已售罄
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status, rejection_reason FROM orders WHERE id = 2
+    expect_value:
+      status: 5
+- name: 订单驳回_不存在的订单ID
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/rejection
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 999999
+      rejectionReason: 菜品已售罄
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 订单驳回_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/rejection
+    headers:
+      Content-Type: application/json
+    body:
+      id: 2
+      rejectionReason: 菜品已售罄
+  assert:
+    status_code: 401
+- name: 派送订单_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/delivery/3
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status FROM orders WHERE id = 3
+    expect_value:
+      status: 3
+- name: 派送订单_不存在的订单ID
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/delivery/999999
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 派送订单_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/delivery/3
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 完成订单_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/complete/4
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status FROM orders WHERE id = 4
+    expect_value:
+      status: 4
+- name: 完成订单_不存在的订单ID
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/complete/999999
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 完成订单_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/complete/4
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 取消订单_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /admin/order/cancel
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 5
+      cancelReason: 客户主动取消
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT status FROM orders WHERE id = 5
+    expect_value:
+      status: 5
+- name: 取消订单_不存在的订单ID
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/cancel
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+    body:
+      id: 999999
+      cancelReason: 客户主动取消
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 取消订单_未登录
+  priority: P1
+  request:
+    method: PUT
+    path: /admin/order/cancel
+    headers:
+      Content-Type: application/json
+    body:
+      id: 5
+      cancelReason: 客户主动取消
+  assert:
+    status_code: 401
+- name: 条件搜索_全部查询
+  priority: P0
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 条件搜索_按订单号搜索
+  priority: P0
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      number: '20240101001'
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 条件搜索_按手机号搜索
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      phone: '13800138000'
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 条件搜索_按订单状态搜索
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      status: 2
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 条件搜索_按时间范围搜索
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      beginTime: '2024-01-01 00:00:00'
+      endTime: '2024-12-31 23:59:59'
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 条件搜索_按用户ID搜索
+  priority: P2
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      userId: 1
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 条件搜索_多条件组合搜索
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      phone: '13800138000'
+      status: 2
+      beginTime: '2024-01-01 00:00:00'
+      endTime: '2024-12-31 23:59:59'
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 条件搜索_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers: {}
+    query:
+      page: 1
+      pageSize: 10
+  assert:
+    status_code: 401
+- name: 条件搜索_分页边界_pageSize为0
+  priority: P2
+  request:
+    method: GET
+    path: /admin/order/conditionSearch
+    headers:
+      token: '{{admin_token}}'
+    query:
+      page: 1
+      pageSize: 0
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 订单详情_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/order/details/1
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 订单详情_不存在的订单ID
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/details/999999
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 订单详情_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/details/1
+    headers: {}
+  assert:
+    status_code: 401
+- name: 订单统计_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /admin/order/statistics
+    headers:
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 订单统计_未登录
+  priority: P1
+  request:
+    method: GET
+    path: /admin/order/statistics
+    headers: {}
+  assert:
+    status_code: 401

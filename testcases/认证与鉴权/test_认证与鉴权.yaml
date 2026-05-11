@@ -1,0 +1,770 @@
+suite: 认证与鉴权模块
+base_url: '{{base_url}}'
+setup:
+- name: 环境连通性检查
+  request:
+    method: GET
+    path: /admin/shop/status
+  assert:
+    status_code: 200
+    json:
+      code: 1
+teardown:
+- name: 清理登录状态
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      token: '{{admin_token}}'
+  continue_on_error: true
+cases:
+- name: 认证模块_环境连通性检查
+  priority: P0
+  marker: smoke
+  description: 验证API服务是否可达，检查base_url配置是否正确
+  request:
+    method: GET
+    path: /admin/shop/status
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data: not_null
+  timeout: 10000
+- name: 认证模块_登录端点可达性检查
+  priority: P0
+  marker: smoke
+  description: 验证登录接口是否可达，使用错误凭据触发业务错误而非连接错误
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: connectivity_check
+      password: connectivity_check
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+  diagnostics:
+  - check: 响应时间合理性
+    max_ms: 5000
+  - check: 响应格式完整性
+    expect_fields:
+    - code
+    - msg
+- name: 认证模块_退出端点可达性检查
+  priority: P0
+  marker: smoke
+  description: 验证退出接口是否可达，使用无效token触发业务错误
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: connectivity_check_token
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+- name: 员工登录_正常流程
+  priority: P0
+  marker: smoke
+  description: 使用正确的用户名和密码进行登录，验证登录成功并返回token
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+      $.data.token: not_empty
+      $.data.name: not_empty
+      $.data.id: not_empty
+  timeout: 10000
+  db_check:
+  - sql: SELECT * FROM employee WHERE username = 'admin'
+    expect_not_empty: true
+  post_steps:
+  - step: 保存token供后续用例使用
+    extract:
+      admin_token: $.data.token
+- name: 员工登录_用户名为空
+  priority: P1
+  marker: regression
+  description: 用户名字段为空字符串，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: ''
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+    jsonpath:
+      $.msg: not_empty
+  timeout: 10000
+- name: 员工登录_密码为空
+  priority: P1
+  marker: regression
+  description: 密码字段为空字符串，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+      password: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+    jsonpath:
+      $.msg: not_empty
+  timeout: 10000
+- name: 员工登录_用户名和密码都为空
+  priority: P1
+  marker: regression
+  description: 用户名和密码都为空，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: ''
+      password: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+- name: 员工登录_用户名为null
+  priority: P1
+  marker: regression
+  description: 用户名字段为null，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+- name: 员工登录_密码为null
+  priority: P1
+  marker: regression
+  description: 密码字段为null，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+- name: 员工登录_用户名不存在
+  priority: P1
+  marker: regression
+  description: 使用不存在的用户名登录，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: nonexistent_user_12345
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 账号不存在
+  timeout: 10000
+- name: 员工登录_密码错误
+  priority: P1
+  marker: regression
+  description: 用户名正确但密码错误，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+      password: wrong_password_12345
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 密码错误
+  timeout: 10000
+- name: 员工登录_禁用状态员工登录
+  priority: P1
+  marker: regression
+  description: 已禁用状态的员工尝试登录，验证返回错误提示
+  pre_steps:
+  - step: 准备禁用状态员工
+    method: POST
+    path: /admin/employee/login
+    body:
+      username: admin
+      password: '123456'
+    extract:
+      temp_token: $.data.token
+  - step: 查询员工ID
+    method: GET
+    path: /admin/employee/page
+    headers:
+      token: '{{temp_token}}'
+    extract:
+      employee_id: $.data.records[?(@.username=='disabled_user')].id
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: disabled_user
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 账号已禁用
+  timeout: 10000
+- name: 员工登录_返回token格式验证
+  priority: P0
+  marker: smoke
+  description: 登录成功后验证返回的token为JWT格式
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+      $.data.token: not_empty
+  timeout: 10000
+  post_steps:
+  - step: 验证token格式
+    method: GET
+    path: /admin/employee/page
+    headers:
+      token: '{{admin_token}}'
+    assert:
+      status_code: 200
+      json:
+        code: 1
+- name: 员工登录_返回用户信息验证
+  priority: P0
+  marker: smoke
+  description: 登录成功后验证返回的用户信息包含必要的字段
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+      $.data.name: not_empty
+      $.data.id: not_empty
+  timeout: 10000
+- name: 员工退出_正常流程
+  priority: P0
+  marker: smoke
+  description: 已登录员工正常退出，验证退出成功
+  pre_steps:
+  - step: 确保已登录
+    method: POST
+    path: /admin/employee/login
+    body:
+      username: admin
+      password: '123456'
+    extract:
+      admin_token: $.data.token
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: 退出成功
+  timeout: 10000
+- name: 员工退出_未登录状态退出
+  priority: P0
+  marker: smoke
+  description: 未登录状态（无token）退出，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+  timeout: 10000
+- name: 员工退出_无效token退出
+  priority: P1
+  marker: regression
+  description: 使用无效token退出，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: invalid_token_1234567890
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: token无效
+  timeout: 10000
+- name: 员工退出_过期token退出
+  priority: P1
+  marker: regression
+  description: 使用过期token退出，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: eyJhbGciOiJIUzI1NiJ9.eyJlbXBsb3llZUlkIjoxLCJleHAiOjE2MDAwMDAwMDB9.expired_token_signature
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: token已过期
+  timeout: 10000
+- name: 员工退出_token为空字符串
+  priority: P1
+  marker: regression
+  description: token为空字符串，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 未登录
+  timeout: 10000
+- name: 员工退出_token为null
+  priority: P1
+  marker: regression
+  description: token字段为null，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: 'null'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 未登录
+  timeout: 10000
+- name: 员工退出_重复退出
+  priority: P2
+  marker: regression
+  description: 同一用户连续退出两次，验证第二次退出的处理
+  pre_steps:
+  - step: 确保已登录
+    method: POST
+    path: /admin/employee/login
+    body:
+      username: admin
+      password: '123456'
+    extract:
+      admin_token: $.data.token
+  - step: 第一次退出
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      token: '{{admin_token}}'
+    assert:
+      json:
+        code: 1
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 未登录
+  timeout: 10000
+- name: 员工退出_退出后token失效验证
+  priority: P0
+  marker: smoke
+  description: 退出后使用原token访问需要认证的接口，验证token已失效
+  pre_steps:
+  - step: 确保已登录
+    method: POST
+    path: /admin/employee/login
+    body:
+      username: admin
+      password: '123456'
+    extract:
+      admin_token: $.data.token
+  - step: 先退出
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      token: '{{admin_token}}'
+    assert:
+      json:
+        code: 1
+  request:
+    method: GET
+    path: /admin/employee/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: token无效
+  timeout: 10000
+- name: 员工退出_非法token格式
+  priority: P1
+  marker: regression
+  description: 使用非法格式的token退出，验证返回错误提示
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: Bearer invalid_format_token
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+- name: 员工退出_SQL注入测试
+  priority: P2
+  marker: regression
+  description: token字段包含SQL注入语句，验证系统安全
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: admin' OR '1'='1
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+- name: 员工退出_XSS攻击测试
+  priority: P2
+  marker: regression
+  description: token字段包含XSS脚本，验证系统安全
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: <script>alert('xss')</script>
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+- name: 员工退出_超长token
+  priority: P2
+  marker: regression
+  description: 使用超长token退出，验证系统处理能力
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: aaaaaa
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+- name: 员工退出_特殊字符token
+  priority: P2
+  marker: regression
+  description: 使用包含特殊字符的token退出，验证系统处理能力
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: '!@#$%^&*()_+{}|:"<>?'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000
+- name: 登录退出完整流程
+  priority: P0
+  marker: smoke
+  description: 验证完整的登录-退出流程，退出后token失效
+  pre_steps:
+  - step: 执行登录
+    method: POST
+    path: /admin/employee/login
+    body:
+      username: admin
+      password: '123456'
+    extract:
+      admin_token: $.data.token
+  request:
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  timeout: 10000
+  post_steps:
+  - step: 验证token失效
+    method: GET
+    path: /admin/employee/page
+    headers:
+      token: '{{admin_token}}'
+    assert:
+      json:
+        code: 0
+- name: 登录退出_并发登录场景
+  priority: P2
+  marker: regression
+  description: 同一用户连续登录两次，验证token处理
+  pre_steps:
+  - step: 第一次登录
+    method: POST
+    path: /admin/employee/login
+    body:
+      username: admin
+      password: '123456'
+    extract:
+      first_token: $.data.token
+  - step: 第二次登录
+    method: POST
+    path: /admin/employee/login
+    body:
+      username: admin
+      password: '123456'
+    extract:
+      second_token: $.data.token
+  request:
+    method: GET
+    path: /admin/employee/page
+    headers:
+      Content-Type: application/json
+      token: '{{second_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  timeout: 10000
+  post_steps:
+  - step: 验证第一个token是否有效
+    method: GET
+    path: /admin/employee/page
+    headers:
+      token: '{{first_token}}'
+    continue_on_error: true
+- name: 登录退出_退出后重新登录
+  priority: P1
+  marker: regression
+  description: 退出后重新登录，验证新token有效
+  pre_steps:
+  - step: 首次登录
+    method: POST
+    path: /admin/employee/login
+    body:
+      username: admin
+      password: '123456'
+    extract:
+      first_token: $.data.token
+  - step: 退出
+    method: POST
+    path: /admin/employee/logout
+    headers:
+      token: '{{first_token}}'
+    assert:
+      json:
+        code: 1
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+      $.data.token: not_empty
+  timeout: 10000
+  post_steps:
+  - step: 验证新token有效
+    method: GET
+    path: /admin/employee/page
+    headers:
+      token: '{{admin_token}}'
+    assert:
+      json:
+        code: 1
+- name: 认证模块_响应时间检查
+  priority: P1
+  marker: regression
+  description: 检查登录接口响应时间是否在可接受范围内
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: admin
+      password: '123456'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  timeout: 5000
+  performance:
+    max_response_time_ms: 3000
+- name: 认证模块_连续请求稳定性
+  priority: P2
+  marker: regression
+  description: 连续发送多个请求，验证服务稳定性
+  pre_steps:
+  - step: 登录获取token
+    method: POST
+    path: /admin/employee/login
+    body:
+      username: admin
+      password: '123456'
+    extract:
+      admin_token: $.data.token
+  - step: 连续请求1
+    method: GET
+    path: /admin/employee/page
+    headers:
+      token: '{{admin_token}}'
+  - step: 连续请求2
+    method: GET
+    path: /admin/shop/status
+    headers:
+      token: '{{admin_token}}'
+  - step: 连续请求3
+    method: GET
+    path: /admin/employee/page
+    headers:
+      token: '{{admin_token}}'
+  request:
+    method: GET
+    path: /admin/employee/page
+    headers:
+      Content-Type: application/json
+      token: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  timeout: 10000
+- name: 认证模块_错误响应格式验证
+  priority: P1
+  marker: regression
+  description: 验证错误响应是否包含必要的错误信息字段
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body:
+      username: error_format_check
+      password: error_format_check
+  assert:
+    status_code: 200
+    json:
+      code: 0
+    jsonpath:
+      $.msg: not_empty
+  timeout: 10000
+- name: 认证模块_非JSON请求体处理
+  priority: P2
+  marker: regression
+  description: 发送非JSON格式的请求体，验证系统错误处理
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: text/plain
+    body: not_json_format
+  assert:
+    status_code: 400
+  timeout: 10000
+- name: 认证模块_空请求体处理
+  priority: P2
+  marker: regression
+  description: 发送空请求体，验证系统错误处理
+  request:
+    method: POST
+    path: /admin/employee/login
+    headers:
+      Content-Type: application/json
+    body: {}
+  assert:
+    status_code: 200
+    json:
+      code: 0
+  timeout: 10000

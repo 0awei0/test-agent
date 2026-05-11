@@ -1,0 +1,180 @@
+suite: 购物车与地址簿管理模块
+base_url: '{{base_url}}'
+cases:
+- name: 添加菜品购物车_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /user/shoppingCart/add
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      dishId: 46
+      dishFlavor: 微辣
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM shopping_cart WHERE dish_id = 1 AND user_id = {{user_id}}
+    expect_not_empty: true
+- name: 添加套餐购物车_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /user/shoppingCart/add
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      setmealId: 32
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM shopping_cart WHERE setmeal_id = 1 AND user_id = {{user_id}}
+    expect_not_empty: true
+- name: 查询购物车列表_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /user/shoppingCart/list
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 清空购物车_正常流程
+  priority: P0
+  request:
+    method: DELETE
+    path: /user/shoppingCart/clean
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM shopping_cart WHERE user_id = {{user_id}}
+    expect_empty: true
+- name: 新增地址_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      consignee: 张三
+      phone: '13800138000'
+      sex: 男
+      provinceName: 北京市
+      cityName: 北京市
+      districtName: 朝阳区
+      detail: 三里屯太古里
+      label: 公司
+      isDefault: 0
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE consignee = '张三' AND user_id = {{user_id}}
+    expect_not_empty: true
+- name: 查询地址列表_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /user/addressBook/list
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 根据ID查询地址_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /user/addressBook/{{address_id}}
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        id: '{{address_id}}'
+- name: 修改地址_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{address_id}}'
+      consignee: 李四
+      phone: '13900139000'
+      sex: 女
+      provinceName: 北京市
+      cityName: 北京市
+      districtName: 海淀区
+      detail: 中关村软件园
+      label: 家
+      isDefault: 0
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = {{address_id}} AND consignee = '李四'
+    expect_not_empty: true
+- name: 设置默认地址_正常流程
+  priority: P0
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: '{{address_id}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = {{address_id}} AND is_default = 1
+    expect_not_empty: true
+- name: 获取默认地址_正常流程
+  priority: P0
+  request:
+    method: GET
+    path: /user/addressBook/default
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 删除地址_正常流程
+  priority: P0
+  request:
+    method: DELETE
+    path: /user/addressBook?id={{address_id}}
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = {{address_id}}
+    expect_empty: true

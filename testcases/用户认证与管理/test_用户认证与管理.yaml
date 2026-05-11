@@ -1,0 +1,103 @@
+suite: 用户认证与管理
+base_url: '{{base_url}}'
+cases:
+- name: 微信登录_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: wx_auth_code_123456
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT * FROM user WHERE openid IS NOT NULL ORDER BY id DESC LIMIT 1
+    expect_not_empty: true
+- name: 微信登录_授权码为空
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_未传授权码参数
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body: {}
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_无效授权码
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: invalid_code_xyz
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_正常流程
+  priority: P0
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 退出登录_未登录状态
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 退出登录_重复退出
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  depends_on: 退出登录_正常流程
+- name: 退出登录_无效token
+  priority: P1
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: invalid_token_abc
+  assert:
+    status_code: 200
+    json:
+      code: 0

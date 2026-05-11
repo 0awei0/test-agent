@@ -1,0 +1,252 @@
+suite: 用户点餐(浏览)模块
+base_url: '{{base_url}}'
+cases:
+- name: 查询分类_不传type返回所有分类
+  priority: P0
+  request:
+    method: GET
+    path: /user/category/list
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+    - expression: $.data
+      assert_type: type
+      value: array
+    - expression: $.data
+      assert_type: not_empty
+    - expression: $.data[*].type
+      assert_type: values_in_set
+      value: '[1,2]'
+- name: 查询分类_传type等于1返回菜品分类
+  priority: P0
+  request:
+    method: GET
+    path: /user/category/list
+    query:
+      type: 1
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+    - expression: $.data
+      assert_type: type
+      value: array
+    - expression: $.data
+      assert_type: not_empty
+    - expression: $.data[*].type
+      assert_type: all_equals
+      value: 1
+- name: 查询分类_传type等于2返回套餐分类
+  priority: P1
+  request:
+    method: GET
+    path: /user/category/list
+    query:
+      type: 2
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+    - expression: $.data
+      assert_type: type
+      value: array
+    - expression: $.data
+      assert_type: not_empty
+    - expression: $.data[*].type
+      assert_type: all_equals
+      value: 2
+- name: 查询分类_未登录返回code0
+  priority: P1
+  request:
+    method: GET
+    path: /user/category/list
+  assert:
+    status_code: 401
+- name: 查询菜品_传有效categoryId返回该分类菜品
+  priority: P0
+  request:
+    method: GET
+    path: /user/dish/list
+    query:
+      categoryId: 1
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+    - expression: $.data
+      assert_type: type
+      value: array
+    - expression: $.data
+      assert_type: not_empty
+    - expression: $.data[*].categoryId
+      assert_type: all_equals
+      value: 1
+- name: 查询菜品_不传categoryId返回所有菜品
+  priority: P0
+  request:
+    method: GET
+    path: /user/dish/list
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+    - expression: $.data
+      assert_type: type
+      value: array
+- name: 查询菜品_传不存在的categoryId返回空列表
+  priority: P1
+  request:
+    method: GET
+    path: /user/dish/list
+    query:
+      categoryId: 999999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data: []
+- name: 查询菜品_未登录返回code0
+  priority: P1
+  request:
+    method: GET
+    path: /user/dish/list
+    query:
+      categoryId: 1
+  assert:
+    status_code: 401
+- name: 查询套餐_传有效categoryId返回该分类套餐
+  priority: P0
+  request:
+    method: GET
+    path: /user/setmeal/list
+    query:
+      categoryId: 1
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+    - expression: $.data
+      assert_type: type
+      value: array
+    - expression: $.data
+      assert_type: not_empty
+    - expression: $.data[*].categoryId
+      assert_type: all_equals
+      value: 1
+- name: 查询套餐_不传categoryId返回所有套餐
+  priority: P0
+  request:
+    method: GET
+    path: /user/setmeal/list
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+    - expression: $.data
+      assert_type: type
+      value: array
+- name: 查询套餐_传不存在的categoryId返回空列表
+  priority: P1
+  request:
+    method: GET
+    path: /user/setmeal/list
+    query:
+      categoryId: 999999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data: []
+- name: 查询套餐_未登录返回code0
+  priority: P1
+  request:
+    method: GET
+    path: /user/setmeal/list
+    query:
+      categoryId: 1
+  assert:
+    status_code: 401
+- name: 查询套餐菜品_传有效id返回菜品列表
+  priority: P0
+  request:
+    method: GET
+    path: /user/setmeal/dish/1
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+    - expression: $.data
+      assert_type: type
+      value: array
+    - expression: $.data
+      assert_type: not_empty
+- name: 查询套餐菜品_传不存在id返回空列表
+  priority: P1
+  request:
+    method: GET
+    path: /user/setmeal/dish/999999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data: []
+- name: 查询套餐菜品_未登录返回code0
+  priority: P1
+  request:
+    method: GET
+    path: /user/setmeal/dish/1
+  assert:
+    status_code: 401
+- name: 获取店铺状态_正常返回营业状态
+  priority: P0
+  request:
+    method: GET
+    path: /user/shop/status
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+    - expression: $.data
+      assert_type: value_in_set
+      value: '[0,1]'
+- name: 获取店铺状态_未登录也返回状态(公开接口)
+  priority: P1
+  request:
+    method: GET
+    path: /user/shop/status
+  assert:
+    status_code: 401

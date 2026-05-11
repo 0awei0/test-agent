@@ -1,458 +1,436 @@
 suite: 地址簿管理模块
-base_url: "{{base_url}}"
+base_url: '{{base_url}}'
 cases:
-  # --- 保存地址 ---
-  - name: 保存地址_正常创建新地址
-    priority: P0
-    marker: smoke
-    request:
-      method: POST
-      path: /user/addressBook
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
+- name: 保存地址_正常创建新地址
+  priority: P0
+  marker: smoke
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      name: 张三
+      phone: 13800138000
+      address: 北京市朝阳区建国路88号
+      isDefault: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        id: '@isNumber'
         name: 张三
         phone: 13800138000
         address: 北京市朝阳区建国路88号
         isDefault: 1
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          id: "@isNumber"
-          name: 张三
-          phone: 13800138000
-          address: 北京市朝阳区建国路88号
-          isDefault: 1
-          userId: "@isNumber"
-          createTime: "@isString"
-    db_check:
-      - sql: "SELECT * FROM address_book WHERE user_id = (SELECT id FROM user WHERE username = 'test_user') AND name = '张三'"
-        expect_not_empty: true
-        expect_count: 1
-        expect_columns:
-          - name: "张三"
-          - phone: "13800138000"
-          - is_default: 1
-
-  - name: 保存地址_缺少必填参数_name
-    priority: P1
-    marker: regression
-    request:
-      method: POST
-      path: /user/addressBook
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
-        phone: 13800138000
-        address: 北京市朝阳区建国路88号
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(收货人姓名不能为空)"
-
-  - name: 保存地址_重复创建相同地址
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /user/addressBook
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
+        userId: '@isNumber'
+        createTime: '@isString'
+  db_check:
+  - sql: SELECT * FROM address_book WHERE user_id = (SELECT id FROM user WHERE username
+      = 'test_user') AND name = '张三'
+    expect_not_empty: true
+    expect_count: 1
+    expect_columns:
+    - name: 张三
+    - phone: '13800138000'
+    - is_default: 1
+- name: 保存地址_缺少必填参数_name
+  priority: P1
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      phone: 13800138000
+      address: 北京市朝阳区建国路88号
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(收货人姓名不能为空)'
+- name: 保存地址_重复创建相同地址
+  priority: P2
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      name: 张三
+      phone: 13800138000
+      address: 北京市朝阳区建国路88号
+      isDefault: 0
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
+        id: '@isNumber'
         name: 张三
-        phone: 13800138000
-        address: 北京市朝阳区建国路88号
-        isDefault: 0
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          id: "@isNumber"
-          name: 张三
-    db_check:
-      - sql: "SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM user WHERE username = 'test_user') AND name = '张三' AND phone = '13800138000' AND address = '北京市朝阳区建国路88号'"
-        expect_columns:
-          - cnt: 2
-
-  - name: 保存地址_地址详情超长字符串
-    priority: P2
-    marker: regression
-    request:
-      method: POST
-      path: /user/addressBook
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
-        name: 张三
-        phone: 13800138000
-        address: "北京市朝阳区建国路88号大厦楼座单元房间，这是一个非常长的地址描述，用于测试系统对长字符串的处理能力，它应该被截断或报错，以防止数据库存储问题。"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(地址长度)"
-
-  # --- 更新地址 ---
-  - name: 更新地址_正常更新所有字段
-    priority: P0
-    marker: smoke
-    request:
-      method: PUT
-      path: /user/addressBook
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
+  db_check:
+  - sql: SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM
+      user WHERE username = 'test_user') AND name = '张三' AND phone = '13800138000'
+      AND address = '北京市朝阳区建国路88号'
+    expect_columns:
+    - cnt: 2
+- name: 保存地址_地址详情超长字符串
+  priority: P2
+  marker: regression
+  request:
+    method: POST
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      name: 张三
+      phone: 13800138000
+      address: 北京市朝阳区建国路88号大厦楼座单元房间，这是一个非常长的地址描述，用于测试系统对长字符串的处理能力，它应该被截断或报错，以防止数据库存储问题。
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(地址长度)'
+- name: 更新地址_正常更新所有字段
+  priority: P0
+  marker: smoke
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: 1
+      name: 张三(更新)
+      phone: 13900139000
+      address: 北京市海淀区中关村大街1号
+      isDefault: 0
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
         id: 1
         name: 张三(更新)
         phone: 13900139000
         address: 北京市海淀区中关村大街1号
         isDefault: 0
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          id: 1
-          name: 张三(更新)
-          phone: 13900139000
-          address: 北京市海淀区中关村大街1号
-          isDefault: 0
-    db_check:
-      - sql: "SELECT * FROM address_book WHERE id = 1"
-        expect_columns:
-          - name: "张三(更新)"
-          - phone: "13900139000"
-          - is_default: 0
-
-  - name: 更新地址_更新不存在的地址
-    priority: P1
-    marker: regression
-    request:
-      method: PUT
-      path: /user/addressBook
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
-        id: 99999
-        name: 不存在
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(地址不存在)"
-
-  - name: 更新地址_参数类型错误_id传字符串
-    priority: P1
-    marker: regression
-    request:
-      method: PUT
-      path: /user/addressBook
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
-        id: "abc"
-        name: 测试
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(参数错误)"
-
-  - name: 更新地址_设置为默认地址_其他默认地址自动取消
-    priority: P2
-    marker: regression
-    request:
-      method: PUT
-      path: /user/addressBook
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
-        id: 2
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = 1
+    expect_columns:
+    - name: 张三(更新)
+    - phone: '13900139000'
+    - is_default: 0
+- name: 更新地址_更新不存在的地址
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: 99999
+      name: 不存在
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(地址不存在)'
+- name: 更新地址_参数类型错误_id传字符串
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: abc
+      name: 测试
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(参数错误)'
+- name: 更新地址_设置为默认地址_其他默认地址自动取消
+  priority: P2
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: 2
+      isDefault: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM
+      user WHERE username = 'test_user') AND is_default = 1
+    expect_columns:
+    - cnt: 1
+- name: 删除地址_正常删除
+  priority: P0
+  marker: smoke
+  request:
+    method: DELETE
+    path: /user/addressBook/deleteById
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    params:
+      id: 3
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      message: 删除成功
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = 3
+    expect_empty: true
+- name: 删除地址_删除不存在的地址
+  priority: P1
+  marker: regression
+  request:
+    method: DELETE
+    path: /user/addressBook/deleteById
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    params:
+      id: 99999
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(地址不存在)'
+- name: 删除地址_未传递id参数
+  priority: P1
+  marker: regression
+  request:
+    method: DELETE
+    path: /user/addressBook/deleteById
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    params: {}
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(参数错误)'
+- name: 删除地址_删除唯一的默认地址
+  priority: P2
+  marker: regression
+  request:
+    method: DELETE
+    path: /user/addressBook/deleteById
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    params:
+      id: 1
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM
+      user WHERE username = 'test_user') AND is_default = 1
+    expect_columns:
+    - cnt: 0
+- name: 获取默认地址_有默认地址
+  priority: P0
+  marker: smoke
+  request:
+    method: GET
+    path: /user/addressBook/default
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
         isDefault: 1
-    assert:
-      status_code: 200
-      json:
-        code: 1
-    db_check:
-      - sql: "SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM user WHERE username = 'test_user') AND is_default = 1"
-        expect_columns:
-          - cnt: 1
-
-  # --- 删除地址 ---
-  - name: 删除地址_正常删除
-    priority: P0
-    marker: smoke
-    request:
-      method: DELETE
-      path: /user/addressBook/deleteById
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      params:
-        id: 3
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        message: 删除成功
-    db_check:
-      - sql: "SELECT * FROM address_book WHERE id = 3"
-        expect_empty: true
-
-  - name: 删除地址_删除不存在的地址
-    priority: P1
-    marker: regression
-    request:
-      method: DELETE
-      path: /user/addressBook/deleteById
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      params:
-        id: 99999
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(地址不存在)"
-
-  - name: 删除地址_未传递id参数
-    priority: P1
-    marker: regression
-    request:
-      method: DELETE
-      path: /user/addressBook/deleteById
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      params: {}
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(参数错误)"
-
-  - name: 删除地址_删除唯一的默认地址
-    priority: P2
-    marker: regression
-    request:
-      method: DELETE
-      path: /user/addressBook/deleteById
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      params:
+        name: '@isString'
+        phone: '@isString'
+- name: 获取默认地址_无默认地址
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/default
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data: null
+- name: 设置默认地址_正常设置
+  priority: P0
+  marker: smoke
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: 2
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      message: 设置成功
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = 2
+    expect_columns:
+    - is_default: 1
+- name: 设置默认地址_设置不存在的地址
+  priority: P1
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: 99999
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(地址不存在)'
+- name: 设置默认地址_设置后其他默认地址自动取消
+  priority: P2
+  marker: regression
+  request:
+    method: PUT
+    path: /user/addressBook/default
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+    body:
+      id: 3
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM
+      user WHERE username = 'test_user') AND is_default = 1 AND id = 3
+    expect_columns:
+    - cnt: 1
+  - sql: SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM
+      user WHERE username = 'test_user') AND is_default = 1 AND id != 3
+    expect_columns:
+    - cnt: 0
+- name: 列表查询_正常查询所有地址
+  priority: P0
+  marker: smoke
+  request:
+    method: GET
+    path: /user/addressBook/list
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data: '@isList'
+  db_check:
+  - sql: SELECT COUNT(*) as total FROM address_book WHERE user_id = (SELECT id FROM
+      user WHERE username = 'test_user')
+    expect_columns:
+    - total: '@greaterThan(0)'
+- name: 列表查询_新用户无地址数据
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/list
+    headers:
+      authentication: '{{new_user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data: []
+- name: 根据ID查询_正常查询
+  priority: P0
+  marker: smoke
+  request:
+    method: GET
+    path: /user/addressBook/1
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      data:
         id: 1
-    assert:
-      status_code: 200
-      json:
-        code: 1
-    db_check:
-      - sql: "SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM user WHERE username = 'test_user') AND is_default = 1"
-        expect_columns:
-          - cnt: 0
-
-  # --- 获取默认地址 ---
-  - name: 获取默认地址_有默认地址
-    priority: P0
-    marker: smoke
-    request:
-      method: GET
-      path: /user/addressBook/default
-      headers:
-        token: "{{user_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          isDefault: 1
-          name: "@isString"
-          phone: "@isString"
-
-  - name: 获取默认地址_无默认地址
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /user/addressBook/default
-      headers:
-        token: "{{user_token}}"
-      # 假设预先删除了所有默认地址，此用例依赖环境或数据准备
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data: null
-
-  # --- 设置默认地址 ---
-  - name: 设置默认地址_正常设置
-    priority: P0
-    marker: smoke
-    request:
-      method: PUT
-      path: /user/addressBook/default
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
-        id: 2
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        message: 设置成功
-    db_check:
-      - sql: "SELECT * FROM address_book WHERE id = 2"
-        expect_columns:
-          - is_default: 1
-
-  - name: 设置默认地址_设置不存在的地址
-    priority: P1
-    marker: regression
-    request:
-      method: PUT
-      path: /user/addressBook/default
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
-        id: 99999
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(地址不存在)"
-
-  - name: 设置默认地址_设置后其他默认地址自动取消
-    priority: P2
-    marker: regression
-    request:
-      method: PUT
-      path: /user/addressBook/default
-      headers:
-        Content-Type: application/json
-        token: "{{user_token}}"
-      body:
-        id: 3
-    assert:
-      status_code: 200
-      json:
-        code: 1
-    db_check:
-      - sql: "SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM user WHERE username = 'test_user') AND is_default = 1 AND id = 3"
-        expect_columns:
-          - cnt: 1
-      - sql: "SELECT COUNT(*) as cnt FROM address_book WHERE user_id = (SELECT id FROM user WHERE username = 'test_user') AND is_default = 1 AND id != 3"
-        expect_columns:
-          - cnt: 0
-
-  # --- 列表查询 ---
-  - name: 列表查询_正常查询所有地址
-    priority: P0
-    marker: smoke
-    request:
-      method: GET
-      path: /user/addressBook/list
-      headers:
-        token: "{{user_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data: "@isList"
-    db_check:
-      - sql: "SELECT COUNT(*) as total FROM address_book WHERE user_id = (SELECT id FROM user WHERE username = 'test_user')"
-        expect_columns:
-          - total: "@greaterThan(0)"
-
-  - name: 列表查询_新用户无地址数据
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /user/addressBook/list
-      headers:
-        token: "{{new_user_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data: []
-
-  # --- 根据ID查询 ---
-  - name: 根据ID查询_正常查询
-    priority: P0
-    marker: smoke
-    request:
-      method: GET
-      path: /user/addressBook/1
-      headers:
-        token: "{{user_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 1
-        data:
-          id: 1
-          name: "@isString"
-          phone: "@isString"
-          address: "@isString"
-          isDefault: "@isNumber"
-    db_check:
-      - sql: "SELECT * FROM address_book WHERE id = 1"
-        expect_not_empty: true
-
-  - name: 根据ID查询_查询不存在的ID
-    priority: P1
-    marker: regression
-    request:
-      method: GET
-      path: /user/addressBook/99999
-      headers:
-        token: "{{user_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(地址不存在)"
-
-  - name: 根据ID查询_无权查询他人地址
-    priority: P2
-    marker: regression
-    request:
-      method: GET
-      path: /user/addressBook/1
-      headers:
-        token: "{{other_user_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(无权访问)"
-
-  - name: 根据ID查询_ID为非数字字符串
-    priority: P2
-    marker: regression
-    request:
-      method: GET
-      path: /user/addressBook/abc
-      headers:
-        token: "{{user_token}}"
-    assert:
-      status_code: 200
-      json:
-        code: 0
-        message: "@contains(参数错误)"
+        name: '@isString'
+        phone: '@isString'
+        address: '@isString'
+        isDefault: '@isNumber'
+  db_check:
+  - sql: SELECT * FROM address_book WHERE id = 1
+    expect_not_empty: true
+- name: 根据ID查询_查询不存在的ID
+  priority: P1
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/99999
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(地址不存在)'
+- name: 根据ID查询_无权查询他人地址
+  priority: P2
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/1
+    headers:
+      authentication: '{{other_user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(无权访问)'
+- name: 根据ID查询_ID为非数字字符串
+  priority: P2
+  marker: regression
+  request:
+    method: GET
+    path: /user/addressBook/abc
+    headers:
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      message: '@contains(参数错误)'

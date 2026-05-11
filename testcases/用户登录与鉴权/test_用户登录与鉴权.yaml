@@ -1,0 +1,703 @@
+suite: 用户登录与鉴权模块
+base_url: '{{base_url}}'
+cases:
+- name: 环境健康检查_服务是否可用
+  priority: P0
+  marker: smoke
+  request:
+    method: GET
+    path: /user/shop/status
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  note: 用于验证测试环境API服务是否正常运行，所有后续用例应在此用例通过后执行
+- name: 微信登录_正常流程_有效授权码
+  priority: P0
+  marker: smoke
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '{{valid_wechat_code}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+      $.data.id: NOT_NULL
+      $.data.name: NOT_NULL
+      $.data.token: NOT_NULL
+  db_check:
+  - sql: SELECT * FROM user WHERE openid IS NOT NULL ORDER BY create_time DESC LIMIT
+      1
+    expect_not_empty: true
+- name: 微信登录_参数校验_code字段为空字符串
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: code不能为空
+- name: 微信登录_参数校验_code字段为null
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: null
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: code不能为空
+- name: 微信登录_参数校验_未传code字段
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body: {}
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: code不能为空
+- name: 微信登录_参数校验_请求体为空
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_参数校验_请求体为非JSON格式
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: text/plain
+    body: code=abc123
+  assert:
+    status_code: 400
+    json:
+      code: 0
+- name: 微信登录_业务异常_无效授权码
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: invalid_code_xxx
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 微信登录失败
+- name: 微信登录_业务异常_授权码已过期
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: expired_wechat_code
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 微信登录失败
+- name: 微信登录_业务异常_授权码重复使用
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '{{used_wechat_code}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 微信登录失败
+- name: 微信登录_业务异常_授权码为特殊字符
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '!@#$%^&*()_+'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+      msg: 微信登录失败
+- name: 微信登录_业务异常_授权码含SQL注入
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '''; DROP TABLE user; --'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_业务异常_授权码含XSS攻击
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: <script>alert(1)</script>
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_参数类型_code为数字类型
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: 123456
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_参数类型_code为布尔类型
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: true
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_参数类型_code为数组类型
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code:
+      - abc
+      - def
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_参数类型_code为对象类型
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code:
+        key: value
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_边界值_授权码长度为1
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: a
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_边界值_授权码长度为256
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_边界值_授权码长度为1024
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_边界值_授权码含空格
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '  abc  '
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_边界值_授权码含换行符
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: 'abc
+
+        def'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_边界值_授权码含中文
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: 微信授权码
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_边界值_授权码含emoji
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: 😀🔥💯
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 微信登录_重复登录_相同用户再次登录
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '{{valid_wechat_code}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  db_check:
+  - sql: SELECT COUNT(*) as cnt FROM user WHERE openid IS NOT NULL
+    expect_count: 1
+    message: 重复登录不应创建重复用户
+- name: 微信登录_并发登录_同一授权码同时请求
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '{{concurrent_wechat_code}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  note: 需配合并发脚本验证，防止重复创建用户
+- name: 微信登录_响应结构_返回token字段
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '{{valid_wechat_code}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+    jsonpath:
+      $.data.token: NOT_NULL
+      $.data.id: NOT_NULL
+      $.data.name: NOT_NULL
+- name: 微信登录_登录后Token有效性_可正常访问需认证接口
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/login
+    headers:
+      Content-Type: application/json
+    body:
+      code: '{{valid_wechat_code}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+  downstream:
+  - name: 使用token访问购物车列表
+    request:
+      method: GET
+      path: /user/shoppingCart/list
+      headers:
+        token: '{{user_token}}'
+    assert:
+      status_code: 200
+      json:
+        code: 1
+- name: 退出登录_正常流程_已登录状态退出
+  priority: P0
+  marker: smoke
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+- name: 退出登录_权限校验_未登录状态退出
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+  assert:
+    status_code: 401
+- name: 退出登录_权限校验_token为空字符串
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: ''
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_权限校验_token为null
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: null
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_权限校验_token过期
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{expired_user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_权限校验_token无效_随机字符串
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: invalid_token_abc123
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_权限校验_token被篡改
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{tampered_user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_权限校验_使用其他用户的token
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{other_user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_退出后Token失效_使用已退出的token访问需认证接口
+  priority: P1
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  steps:
+  - step: 1_退出登录
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: '{{user_token}}'
+    assert:
+      status_code: 200
+      json:
+        code: 1
+  - step: 2_使用退出后的token访问购物车列表
+    request:
+      method: GET
+      path: /user/shoppingCart/list
+      headers:
+        Content-Type: application/json
+        token: '{{user_token}}'
+    assert:
+      status_code: 200
+      json:
+        code: 0
+- name: 退出登录_重复退出_已退出后再次退出
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  steps:
+  - step: 1_第一次退出
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: '{{user_token}}'
+    assert:
+      status_code: 200
+      json:
+        code: 1
+  - step: 2_第二次退出
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: '{{user_token}}'
+    assert:
+      status_code: 200
+      json:
+        code: 0
+- name: 退出登录_退出后重新登录_可正常登录
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  steps:
+  - step: 1_退出登录
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: '{{user_token}}'
+    assert:
+      status_code: 200
+      json:
+        code: 1
+  - step: 2_重新登录
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: '{{valid_wechat_code}}'
+    assert:
+      status_code: 200
+      json:
+        code: 1
+  - step: 3_使用新token访问购物车列表
+    request:
+      method: GET
+      path: /user/shoppingCart/list
+      headers:
+        Content-Type: application/json
+        token: '{{new_user_token}}'
+    assert:
+      status_code: 200
+      json:
+        code: 1
+- name: 退出登录_响应结构_返回正确数据结构
+  priority: P2
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{user_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 1
+      msg: NOT_NULL
+      data: NOT_NULL
+- name: 退出登录_安全性_使用管理员token退出用户接口
+  priority: P3
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: '{{admin_token}}'
+  assert:
+    status_code: 200
+    json:
+      code: 0
+- name: 退出登录_安全性_Bearer格式token
+  priority: P3
+  marker: regression
+  depends_on: 环境健康检查_服务是否可用
+  request:
+    method: POST
+    path: /user/user/logout
+    headers:
+      Content-Type: application/json
+      authentication: Bearer {{user_token}}
+  assert:
+    status_code: 200
+    json:
+      code: 0
