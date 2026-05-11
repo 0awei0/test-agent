@@ -339,19 +339,40 @@ def run_workflow(swagger_dir: str = "docs"):
         order_map = {name: i for i, name in enumerate(execution_order)}
         modules.sort(key=lambda m: order_map.get(m.get("name", ""), 999))
 
-    # Step 2: 逐模块执行闭环
-    all_results = []
-    for i, module in enumerate(modules, 1):
+    # Step 2: 并行执行模块
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+
+    print(f"\n  🚀 并行执行 {len(modules)} 个模块...")
+
+    def run_module_with_index(i, module):
         try:
             result = run_module_pipeline(module, swagger_files, i, len(modules))
-            all_results.append(result)
+            return result
         except Exception as e:
             print(f"\n  ❌ 模块 {module.get('name', 'unknown')} 执行失败: {type(e).__name__}: {str(e)[:100]}")
-            all_results.append({
+            return {
                 "module": module.get("name", "unknown"),
                 "error": str(e),
                 "test_result": {"returncode": -1, "passed": 0, "failed": 0, "total": 0, "pass_rate": 0},
-            })
+            }
+
+    # 最多并行 4 个模块
+    max_workers = min(4, len(modules))
+    all_results = [None] * len(modules)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(run_module_with_index, i, module): i for i, module in enumerate(modules)}
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                all_results[idx] = future.result()
+            except Exception as e:
+                all_results[idx] = {
+                    "module": modules[idx].get("name", "unknown"),
+                    "error": str(e),
+                    "test_result": {"returncode": -1, "passed": 0, "failed": 0, "total": 0, "pass_rate": 0},
+                }
 
     # Step 3: 汇总结果
     print("\n" + "=" * 60)
