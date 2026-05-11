@@ -114,7 +114,7 @@ def run_plan_agent(swagger_paths: list) -> dict:
     task = f"请为以下 API 接口生成测试计划：\n\n{api_summary}"
 
     print("  [Plan Agent] 正在分析 API 文档...")
-    result = Runner.run_sync(planner, task)
+    result = Runner.run_sync(planner, task, max_turns=20)
     plan_text = result.final_output
 
     plan_text = plan_text.replace("```json", "").replace("```", "").strip()
@@ -178,13 +178,13 @@ def run_module_pipeline(module: dict, swagger_files: list, module_index: int, to
             gen_task = f"请根据审核反馈修改测试用例。\n\n模块：{name}\n接口：\n{api_list}\n\n上一版 YAML：\n{current_yaml}\n\n审核反馈：\n{review_feedback}"
 
         print(f"  │  [Generator] 生成中...")
-        gen_result = Runner.run_sync(generator, gen_task)
+        gen_result = Runner.run_sync(generator, gen_task, max_turns=20)
         current_yaml = gen_result.final_output
 
         # 审核
         print(f"  │  [Reviewer] 审核中...")
         review_task = f"请审核以下 YAML 测试用例，对照 Swagger 文档检查接口准确性和场景覆盖度：\n\n{current_yaml}"
-        review_result = Runner.run_sync(reviewer, review_task)
+        review_result = Runner.run_sync(reviewer, review_task, max_turns=20)
         review_feedback = review_result.final_output
 
         # 保存 YAML
@@ -195,7 +195,7 @@ def run_module_pipeline(module: dict, swagger_files: list, module_index: int, to
         if not yaml_valid:
             print(f"  │  [Generator] 修复 YAML 语法...")
             fix_task = f"请修复以下 YAML 的语法错误，保持用例内容不变，只修复格式：\n\n{current_yaml}"
-            fix_result = Runner.run_sync(generator, fix_task)
+            fix_result = Runner.run_sync(generator, fix_task, max_turns=20)
             current_yaml = fix_result.final_output
             yaml_valid = save_yaml(current_yaml, filepath)
 
@@ -289,7 +289,7 @@ def run_module_pipeline(module: dict, swagger_files: list, module_index: int, to
         analyzer = create_failure_analyzer_agent()
         formatted = format_failures_for_agent(failures)
         analysis_task = f"请分析以下测试失败用例，判断是用例问题、代码Bug还是环境问题：\n\n{formatted}"
-        analysis_result = Runner.run_sync(analyzer, analysis_task)
+        analysis_result = Runner.run_sync(analyzer, analysis_task, max_turns=20)
         analysis = analysis_result.final_output
 
         module_result["failure_analysis"] = analysis
@@ -300,7 +300,7 @@ def run_module_pipeline(module: dict, swagger_files: list, module_index: int, to
             print(f"  └─ 🔄 用例问题，反馈给 Generator 重新生成...")
             # 反馈给下一轮生成
             gen_task = f"请根据失败分析修改测试用例。\n\n模块：{name}\n失败分析：\n{analysis}\n\n当前 YAML：\n{current_yaml}"
-            gen_result = Runner.run_sync(generator, gen_task)
+            gen_result = Runner.run_sync(generator, gen_task, max_turns=20)
             current_yaml = gen_result.final_output
             save_yaml(current_yaml, filepath)
         else:
