@@ -1,10 +1,24 @@
-suite: 苍穹外卖-核心接口压测
+suite: 苍穹外卖-阶梯加压测试
 base_url: "http://zombieai.cn:8080"
 
 config:
-  users: 20
-  spawn_rate: 5
-  run_time: 30s
+  type: step_load
+  stages:
+    - users: 10
+      run_time: 20s
+      spawn_rate: 5
+    - users: 20
+      run_time: 20s
+      spawn_rate: 10
+    - users: 50
+      run_time: 20s
+      spawn_rate: 15
+    - users: 100
+      run_time: 20s
+      spawn_rate: 20
+    - users: 200
+      run_time: 20s
+      spawn_rate: 25
 
 login:
   enabled: true
@@ -54,6 +68,16 @@ scenarios:
       - name: 订单搜索
         method: GET
         path: /admin/order/conditionSearch
+        params:
+          page: 1
+          pageSize: 10
+
+  - name: 套餐查询
+    weight: 4
+    tasks:
+      - name: 套餐分页查询
+        method: GET
+        path: /admin/setmeal/page
         params:
           page: 1
           pageSize: 10

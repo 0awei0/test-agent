@@ -16,11 +16,34 @@ from core.assertion import (
 )
 from config.settings import settings
 
+# Token cache (module-level, persists across test cases in a session)
+_token_cache = {}
+
+
+def _login_and_get_token(username: str, password: str, login_path: str) -> str:
+    """Login and cache the token"""
+    cache_key = f"{username}:{login_path}"
+    if cache_key in _token_cache:
+        return _token_cache[cache_key]
+
+    client = APIClient(base_url=settings.BASE_URL)
+    resp = client.request("POST", login_path, json={"username": username, "password": password})
+    token = (resp.get("data") or {}).get("token", "")
+    if token:
+        _token_cache[cache_key] = token
+        logger.info(f"[Auth] Got token for {username}: {token[:20]}...")
+    else:
+        logger.warning(f"[Auth] Failed to get token for {username}: {resp}")
+    return token
+
 
 def get_default_variables():
+    admin_token = _login_and_get_token("admin", "123456", "/admin/employee/login")
+    user_token = _login_and_get_token("user", "123456", "/user/user/login")
     return {
         "base_url": settings.BASE_URL,
-        "admin_token": "",
+        "admin_token": admin_token,
+        "user_token": user_token,
     }
 
 

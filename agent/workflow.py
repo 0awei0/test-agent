@@ -1,15 +1,17 @@
 """
-Test Agent Workflow - 自动化测试工作流
+Test Agent Workflow - 每模块独立闭环
 
 流程：
-1. Plan Agent    → 分析 API 文档，生成测试计划
-2. Generator     → 按模块批量生成测试用例（带 Swagger 工具）
-3. Reviewer      → 审核用例质量
-4. Coverage      → 自动检测覆盖率
-5. Feedback Loop → 未覆盖接口反馈给 Generator 重新生成
-6. Pytest        → 执行功能测试
-7. Perf Test     → 性能压测
-8. Failure       → 失败分析（带工具）
+1. Plan Agent     → 分析 API 文档，生成测试计划
+2. For each module:
+   2.1 Generator  → 生成 YAML 用例
+   2.2 Reviewer   → 审核（对照 Swagger）
+   2.3 Coverage   → 检查模块覆盖率
+   2.4 如果不通过 → 回到 2.1
+   2.5 Pytest     → 执行该模块测试
+   2.6 Failure    → 分析失败原因
+   2.7 如果是用例问题 → 回到 2.1
+3. 汇总所有结果
 """
 
 import os
@@ -27,7 +29,7 @@ os.environ["HTTPS_PROXY"] = ""
 from agent.model import mimo_model, doubao_model
 from agent.main import create_generator_agent, create_reviewer_agent, create_failure_analyzer_agent
 from agents import Agent, Runner
-from core.coverage import analyze_coverage, format_coverage_report
+from core.coverage import load_swagger_apis, analyze_module_coverage, format_coverage_report
 
 
 # ============================================================
@@ -56,12 +58,35 @@ def load_swagger_summary(doc_path: str) -> str:
     return json.dumps(apis, ensure_ascii=False, indent=2)
 
 
-def save_yaml(content: str, filepath: str):
+def save_yaml(content: str, filepath: str) -> bool:
+    """保存 YAML 文件，自动修复常见语法问题，返回是否有效"""
+    import yaml
+
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     clean = content.replace("```yaml", "").replace("```", "").strip()
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(clean)
-    print(f"  ✅ 已保存: {filepath}")
+
+    try:
+        yaml.safe_load(clean)
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(clean)
+        print(f"  ✅ 已保存: {filepath}")
+        return True
+    except yaml.YAMLError as e:
+        # 保存原始内容，但返回 False 表示有语法问题
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(clean)
+        print(f"  ⚠️  YAML 语法有问题: {str(e)[:100]}")
+        return False
+
+
+def get_swagger_files(swagger_dir: str = "docs") -> list:
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    swagger_path = os.path.join(project_root, swagger_dir)
+    return [
+        os.path.join(swagger_path, f)
+        for f in os.listdir(swagger_path)
+        if f.endswith(".json") and "swagger" in f.lower()
+    ]
 
 
 # ============================================================
@@ -104,312 +129,167 @@ def run_plan_agent(swagger_paths: list) -> dict:
             raise ValueError("Plan Agent 输出的不是有效 JSON")
 
     print(f"  [Plan Agent] 完成！共 {len(plan.get('modules', []))} 个模块")
-    print(f"  预估用例数: {plan.get('total_estimated_cases', '未知')}")
 
     plan_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_plan.json")
     with open(plan_path, "w", encoding="utf-8") as f:
         json.dump(plan, f, ensure_ascii=False, indent=2)
-    print(f"  计划已保存: {plan_path}")
 
     return plan
 
 
 # ============================================================
-# Step 2 & 3: Generate + Review（带工具）
+# Step 2: 单模块闭环
 # ============================================================
 
-def run_generate_and_review(modules: list, max_rounds: int = 2) -> list:
-    print("\n" + "=" * 60)
-    print("🔧 Step 2 & 3: Generate + Review - 按模块生成并审核")
-    print("=" * 60)
+def run_module_pipeline(module: dict, swagger_files: list, module_index: int, total_modules: int) -> dict:
+    """单模块完整闭环：生成 → 审核 → 覆盖率 → 执行 → 失败分析"""
+    name = module.get("name", f"模块{module_index}")
+    apis = module.get("apis", [])
+    priority = module.get("priority", "P1")
+
+    print(f"\n{'='*60}")
+    print(f"📦 [{module_index}/{total_modules}] 模块: {name} (优先级: {priority})")
+    print(f"   接口数: {len(apis)}")
+    print(f"{'='*60}")
 
     generator = create_generator_agent()
     reviewer = create_reviewer_agent()
-
-    results = []
-    total = len(modules)
-
-    for i, module in enumerate(modules, 1):
-        name = module.get("name", f"模块{i}")
-        apis = module.get("apis", [])
-        priority = module.get("priority", "P1")
-
-        print(f"\n  [{i}/{total}] {name} (优先级: {priority})")
-        print(f"  接口数: {len(apis)}")
-
-        api_list = "\n".join([
-            f"- {api['method']} {api['path']} {api.get('summary', '')}"
-            for api in apis
-        ])
-        gen_task = f"""请为{name}模块生成完整测试用例，覆盖以下接口：
-
-{api_list}
-
-要求：
-1. 每个接口至少 3 个用例（正常+异常+边界）
-2. 直接输出 YAML，不要有其他文字
-3. 用中文命名用例
-4. 可以调用 parse_swagger_doc 或 get_api_detail 了解接口详情"""
-
-        for round_num in range(max_rounds):
-            print(f"  [Round {round_num + 1}] 生成中...")
-
-            gen_result = Runner.run_sync(generator, gen_task)
-            yaml_content = gen_result.final_output
-
-            print(f"  [Round {round_num + 1}] 审核中...")
-            review_task = f"请审核以下 YAML 测试用例：\n\n{yaml_content}"
-            review_result = Runner.run_sync(reviewer, review_task)
-            review_feedback = review_result.final_output
-
-            if "通过" in review_feedback or "PASS" in review_feedback.upper():
-                print(f"  [Round {round_num + 1}] ✅ 审核通过")
-                break
-            else:
-                print(f"  [Round {round_num + 1}] ❌ 未通过，继续修改...")
-                gen_task = f"请根据反馈修改测试用例。\n\n原始需求：{gen_task}\n\n上一版 YAML：\n{yaml_content}\n\n审核反馈：\n{review_feedback}"
-
-        safe_name = name.replace("/", "_").replace(" ", "_").lower()
-        filepath = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "testcases", safe_name, f"test_{safe_name}.yaml"
-        )
-        save_yaml(yaml_content, filepath)
-
-        results.append({"module": name, "file": filepath, "status": "success"})
-
-    return results
-
-
-# ============================================================
-# Step 4: Coverage Check
-# ============================================================
-
-def run_coverage_check() -> dict:
-    print("\n" + "=" * 60)
-    print("📊 Step 4: Coverage Check - 覆盖率检测")
-    print("=" * 60)
-
     project_root = os.path.dirname(os.path.dirname(__file__))
-    swagger_dir = os.path.join(project_root, "docs")
-    yaml_dir = os.path.join(project_root, "testcases")
+    safe_name = name.replace("/", "_").replace(" ", "_").lower()
+    yaml_dir = os.path.join(project_root, "testcases", safe_name)
 
-    swagger_files = [
-        os.path.join(swagger_dir, f)
-        for f in os.listdir(swagger_dir)
-        if f.endswith(".json") and "swagger" in f.lower()
-    ]
+    # 构建接口列表
+    api_list = "\n".join([
+        f"- {api['method']} {api['path']} {api.get('summary', '')}"
+        for api in apis
+    ])
 
-    result = analyze_coverage(swagger_files, yaml_dir)
-    print(format_coverage_report(result))
-    return result
+    # ========== 内循环 1: 生成 + 审核 + 覆盖率 ==========
+    max_gen_rounds = 3
+    current_yaml = None
 
+    for gen_round in range(max_gen_rounds):
+        print(f"\n  ┌─ 生成+审核 Round {gen_round + 1}")
 
-# ============================================================
-# Step 5: Feedback Loop
-# ============================================================
+        # 生成
+        if gen_round == 0:
+            gen_task = f"请为{name}模块生成完整测试用例，覆盖以下接口：\n\n{api_list}\n\n要求覆盖所有场景（正常/异常/边界/权限）。"
+        else:
+            gen_task = f"请根据审核反馈修改测试用例。\n\n模块：{name}\n接口：\n{api_list}\n\n上一版 YAML：\n{current_yaml}\n\n审核反馈：\n{review_feedback}"
 
-def run_feedback_loop(coverage_result: dict, max_rounds: int = 3) -> dict:
-    target_rate = 90.0
-    current_rate = coverage_result["summary"]["coverage_rate"]
+        print(f"  │  [Generator] 生成中...")
+        gen_result = Runner.run_sync(generator, gen_task)
+        current_yaml = gen_result.final_output
 
-    if current_rate >= target_rate:
-        print(f"\n✅ 覆盖率 {current_rate}% 已达标（目标 {target_rate}%），无需补充")
-        return coverage_result
+        # 审核
+        print(f"  │  [Reviewer] 审核中...")
+        review_task = f"请审核以下 YAML 测试用例，对照 Swagger 文档检查接口准确性和场景覆盖度：\n\n{current_yaml}"
+        review_result = Runner.run_sync(reviewer, review_task)
+        review_feedback = review_result.final_output
 
-    print(f"\n" + "=" * 60)
-    print(f"🔄 Step 5: Feedback Loop - 补充缺失用例")
-    print(f"当前覆盖率: {current_rate}%, 目标: {target_rate}%")
-    print("=" * 60)
+        # 保存 YAML
+        filepath = os.path.join(yaml_dir, f"test_{safe_name}.yaml")
+        yaml_valid = save_yaml(current_yaml, filepath)
 
-    generator = create_generator_agent()
-    reviewer = create_reviewer_agent()
+        # 如果 YAML 语法有问题，让 Generator 修复
+        if not yaml_valid:
+            print(f"  │  [Generator] 修复 YAML 语法...")
+            fix_task = f"请修复以下 YAML 的语法错误，保持用例内容不变，只修复格式：\n\n{current_yaml}"
+            fix_result = Runner.run_sync(generator, fix_task)
+            current_yaml = fix_result.final_output
+            yaml_valid = save_yaml(current_yaml, filepath)
 
-    for round_num in range(max_rounds):
-        uncovered = coverage_result["uncovered"]
-        if not uncovered:
-            print("  所有接口已覆盖！")
+        # 检查审核结果
+        if "通过" in review_feedback or "PASS" in review_feedback.upper():
+            print(f"  │  ✅ 审核通过")
+        else:
+            print(f"  │  ❌ 审核未通过")
+            print(f"  │  反馈: {review_feedback[:200]}...")
+            continue
+
+        # 检查模块覆盖率
+        coverage = analyze_module_coverage(apis, os.path.join(project_root, "testcases"))
+        print(f"  │  覆盖率: {coverage['coverage_rate']}% ({coverage['covered_apis']}/{coverage['total_apis']})")
+        print(f"  │  用例数: P0={coverage['priority_counts']['P0']} P1={coverage['priority_counts']['P1']} P2={coverage['priority_counts']['P2']}")
+
+        if coverage['coverage_rate'] >= 90:
+            print(f"  └─ ✅ 覆盖率达标")
             break
+        else:
+            print(f"  └─ ⚠️ 覆盖率不足，继续补充...")
 
-        print(f"\n  [Feedback Round {round_num + 1}] 未覆盖接口: {len(uncovered)} 个")
-
-        modules = {}
-        for api in uncovered:
-            mod = api.get("module", "未分类")
-            if mod not in modules:
-                modules[mod] = []
-            modules[mod].append(api)
-
-        for mod, apis in modules.items():
-            print(f"  补充模块: {mod} ({len(apis)} 个接口)")
-
-            api_list = "\n".join([
-                f"- {api['method']} {api['path']} {api.get('summary', '')}"
-                for api in apis
-            ])
-
-            gen_task = f"请为以下未覆盖接口生成测试用例：\n\n{api_list}\n\n每个接口至少 3 个用例，直接输出 YAML。"
-
-            gen_result = Runner.run_sync(generator, gen_task)
-            yaml_content = gen_result.final_output
-
-            review_task = f"请审核以下 YAML 测试用例：\n\n{yaml_content}"
-            Runner.run_sync(reviewer, review_task)
-
-            safe_mod = mod.replace("/", "_").replace(" ", "_").lower()
-            filepath = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)),
-                "testcases", safe_mod, f"test_{safe_mod}_extra.yaml"
-            )
-            save_yaml(yaml_content, filepath)
-
-        coverage_result = run_coverage_check()
-        current_rate = coverage_result["summary"]["coverage_rate"]
-
-        if current_rate >= target_rate:
-            print(f"\n✅ 覆盖率 {current_rate}% 已达标！")
-            break
-
-    return coverage_result
-
-
-# ============================================================
-# Step 6: Pytest Execution（新增）
-# ============================================================
-
-def run_pytest_execution() -> dict:
-    """执行功能测试"""
-    print("\n" + "=" * 60)
-    print("🧪 Step 6: Pytest Execution - 执行功能测试")
-    print("=" * 60)
-
-    project_root = os.path.dirname(os.path.dirname(__file__))
-    testcases_dir = os.path.join(project_root, "testcases")
-
-    if not os.path.exists(testcases_dir):
-        print("  ⚠️  testcases 目录不存在，跳过")
-        return {}
-
-    yaml_files = []
-    for root, dirs, files in os.walk(testcases_dir):
-        for f in files:
-            if f.endswith(".yaml") and f.startswith("test_"):
-                yaml_files.append(os.path.join(root, f))
-
-    if not yaml_files:
-        print("  ⚠️  没有找到测试用例文件，跳过")
-        return {}
-
-    print(f"  找到 {len(yaml_files)} 个测试文件")
-
-    cmd = [
-        os.path.join(project_root, ".venv", "bin", "pytest"),
-        testcases_dir,
-        "--alluredir", os.path.join(project_root, "reports"),
-        "--clean-alluredir",
-        "-v",
-        "--tb=short",
-    ]
-
-    print("  [Pytest] 正在执行...")
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=300,
-        cwd=project_root,
-    )
-
-    output = result.stdout + result.stderr
-    lines = output.strip().split("\n")
-
-    summary_lines = [l for l in lines if "passed" in l or "failed" in l or "error" in l or "==" in l]
-    summary = "\n".join(summary_lines[-10:]) if summary_lines else output[-1000:]
-
-    print(f"  [Pytest] 结果:")
-    print(f"  {summary}")
-
-    return {
-        "returncode": result.returncode,
-        "output": summary,
-        "total_files": len(yaml_files),
+    # ========== 内循环 2: 执行 + 失败分析 ==========
+    max_exec_rounds = 2
+    module_result = {
+        "module": name,
+        "yaml_file": filepath,
+        "coverage": coverage,
+        "test_result": None,
+        "failure_analysis": None,
     }
 
+    for exec_round in range(max_exec_rounds):
+        print(f"\n  ┌─ 执行 Round {exec_round + 1}")
 
-# ============================================================
-# Step 7: Performance Test
-# ============================================================
+        # 执行 pytest
+        print(f"  │  [Pytest] 执行 {name} 模块测试...")
+        testcases_dir = os.path.join(project_root, "testcases", safe_name)
+        cmd = [
+            os.path.join(project_root, ".venv", "bin", "pytest"),
+            testcases_dir,
+            "--alluredir", os.path.join(project_root, "reports"),
+            "-v", "--tb=short",
+        ]
 
-def run_perf_test(perf_yaml: str = "perf/scenarios/core_api.yaml") -> dict:
-    print("\n" + "=" * 60)
-    print("⚡ Step 7: Performance Test - 性能测试")
-    print("=" * 60)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, cwd=project_root)
+        output = result.stdout + result.stderr
+        lines = output.strip().split("\n")
+        summary_lines = [l for l in lines if "passed" in l or "failed" in l or "==" in l]
+        test_summary = "\n".join(summary_lines[-5:]) if summary_lines else output[-500:]
 
-    from core.locust_runner import load_perf_yaml, generate_locustfile, run_locust_test, format_perf_report
+        print(f"  │  {test_summary}")
 
-    project_root = os.path.dirname(os.path.dirname(__file__))
-    full_path = os.path.join(project_root, perf_yaml)
+        module_result["test_result"] = {
+            "returncode": result.returncode,
+            "output": test_summary,
+        }
 
-    if not os.path.exists(full_path):
-        print(f"  ⚠️  压测场景文件不存在: {perf_yaml}，跳过性能测试")
-        return {}
+        # 如果全部通过，不需要失败分析
+        if result.returncode == 0:
+            print(f"  └─ ✅ 全部通过")
+            break
 
-    config = load_perf_yaml(full_path)
-    base_url = config.get("base_url", "")
-    perf_config = config.get("config", {})
+        # 失败分析
+        print(f"  │  [Failure Analyzer] 分析失败原因...")
+        from core.failure_collector import collect_failures_from_allure, format_failures_for_agent
 
-    print(f"  目标: {base_url}")
-    print(f"  并发: {perf_config.get('users', 10)} 用户")
-    print(f"  时长: {perf_config.get('run_time', '30s')}")
+        failures = collect_failures_from_allure("reports")
+        if not failures:
+            print(f"  └─ ⚠️ 没有收集到失败信息")
+            break
 
-    locustfile = os.path.join(project_root, "perf", "generated_locustfile.py")
-    generate_locustfile(config, locustfile)
+        analyzer = create_failure_analyzer_agent()
+        formatted = format_failures_for_agent(failures)
+        analysis_task = f"请分析以下测试失败用例，判断是用例问题、代码Bug还是环境问题：\n\n{formatted}"
+        analysis_result = Runner.run_sync(analyzer, analysis_task)
+        analysis = analysis_result.final_output
 
-    print("  [Locust] 正在执行压测...")
-    stats = run_locust_test(
-        locustfile_path=locustfile,
-        host=base_url,
-        users=perf_config.get("users", 10),
-        spawn_rate=perf_config.get("spawn_rate", 5),
-        run_time=str(perf_config.get("run_time", "30s")),
-    )
+        module_result["failure_analysis"] = analysis
+        print(f"  │  分析结果: {analysis[:200]}...")
 
-    report = format_perf_report(stats)
-    print(report)
-    return stats
+        # 判断是否是用例问题
+        if "用例问题" in analysis or "断言" in analysis or "参数" in analysis:
+            print(f"  └─ 🔄 用例问题，反馈给 Generator 重新生成...")
+            # 反馈给下一轮生成
+            gen_task = f"请根据失败分析修改测试用例。\n\n模块：{name}\n失败分析：\n{analysis}\n\n当前 YAML：\n{current_yaml}"
+            gen_result = Runner.run_sync(generator, gen_task)
+            current_yaml = gen_result.final_output
+            save_yaml(current_yaml, filepath)
+        else:
+            print(f"  └─ 🐛 代码 Bug 或环境问题，记录并继续")
+            break
 
-
-# ============================================================
-# Step 8: Failure Analysis（带工具）
-# ============================================================
-
-def run_failure_analysis() -> str:
-    print("\n" + "=" * 60)
-    print("🔍 Step 8: Failure Analysis - 失败分析")
-    print("=" * 60)
-
-    from core.failure_collector import collect_failures_from_allure, format_failures_for_agent
-
-    failures = collect_failures_from_allure("reports")
-
-    if not failures:
-        print("  ✅ 没有失败的测试用例")
-        return ""
-
-    print(f"  发现 {len(failures)} 个失败用例")
-
-    analyzer = create_failure_analyzer_agent()
-
-    formatted = format_failures_for_agent(failures)
-    task = f"请分析以下测试失败用例，判断是用例问题、代码Bug还是环境问题：\n\n{formatted}"
-
-    result = Runner.run_sync(analyzer, task)
-    analysis = result.final_output
-
-    print(f"  分析完成:")
-    print(f"  {analysis[:500]}")
-
-    return analysis
+    return module_result
 
 
 # ============================================================
@@ -421,17 +301,10 @@ def run_workflow(swagger_dir: str = "docs"):
 
     print("\n" + "🚀" * 20)
     print("  Test Agent Workflow 开始执行")
+    print("  模式: 每模块独立闭环")
     print("🚀" * 20)
 
-    project_root = os.path.dirname(os.path.dirname(__file__))
-    swagger_path = os.path.join(project_root, swagger_dir)
-
-    swagger_files = [
-        os.path.join(swagger_path, f)
-        for f in os.listdir(swagger_path)
-        if f.endswith(".json") and "swagger" in f.lower()
-    ]
-
+    swagger_files = get_swagger_files(swagger_dir)
     if not swagger_files:
         print("❌ 未找到 Swagger JSON 文件")
         return
@@ -442,53 +315,58 @@ def run_workflow(swagger_dir: str = "docs"):
 
     # Step 1: Plan
     plan = run_plan_agent(swagger_files)
-
-    # Step 2 & 3: Generate + Review
     modules = plan.get("modules", [])
     execution_order = plan.get("execution_order", [])
     if execution_order:
         order_map = {name: i for i, name in enumerate(execution_order)}
         modules.sort(key=lambda m: order_map.get(m.get("name", ""), 999))
 
-    generate_results = run_generate_and_review(modules)
+    # Step 2: 逐模块执行闭环
+    all_results = []
+    for i, module in enumerate(modules, 1):
+        result = run_module_pipeline(module, swagger_files, i, len(modules))
+        all_results.append(result)
 
-    # Step 4: Coverage Check
-    coverage_result = run_coverage_check()
-
-    # Step 5: Feedback Loop
-    final_result = run_feedback_loop(coverage_result)
-
-    # Step 6: Pytest Execution（新增）
-    pytest_result = run_pytest_execution()
-
-    # Step 7: Performance Test
-    perf_result = run_perf_test()
-
-    # Step 8: Failure Analysis（带工具）
-    failure_result = run_failure_analysis()
-
-    # 最终报告
-    elapsed = time.time() - start_time
+    # Step 3: 汇总结果
     print("\n" + "=" * 60)
-    print("📊 最终报告")
-    print("=" * 60)
-    print(f"总接口数:   {final_result['summary']['total_apis']}")
-    print(f"已覆盖:     {final_result['summary']['covered_apis']}")
-    print(f"测试用例数: {final_result['summary']['total_cases']}")
-    print(f"最终覆盖率: {final_result['summary']['coverage_rate']}%")
-    if pytest_result:
-        print(f"功能测试:   {pytest_result.get('output', 'N/A')}")
-    if perf_result and perf_result.get("total"):
-        total = perf_result["total"]
-        print(f"压测 QPS:   {total.get('rps', 0):.2f}")
-        print(f"平均响应:   {total.get('avg_response_time', 0):.2f} ms")
-        print(f"P95 响应:   {total.get('p95', 0):.2f} ms")
-    if failure_result:
-        print(f"失败分析:   已完成")
-    print(f"总耗时:     {elapsed:.1f} 秒")
+    print("📊 最终汇总报告")
     print("=" * 60)
 
-    return final_result
+    total_apis = 0
+    covered_apis = 0
+    total_cases = 0
+    passed_modules = 0
+    failed_modules = 0
+
+    for r in all_results:
+        cov = r.get("coverage", {})
+        total_apis += cov.get("total_apis", 0)
+        covered_apis += cov.get("covered_apis", 0)
+        total_cases += cov.get("total_cases", 0)
+
+        test = r.get("test_result", {})
+        if test and test.get("returncode") == 0:
+            passed_modules += 1
+        else:
+            failed_modules += 1
+
+        status = "✅" if test and test.get("returncode") == 0 else "❌"
+        rate = cov.get("coverage_rate", 0)
+        print(f"  {status} {r['module']:20s} 覆盖率:{rate:5.1f}% 用例:{cov.get('total_cases',0)}")
+
+    overall_rate = round(covered_apis / total_apis * 100, 1) if total_apis > 0 else 0
+    elapsed = time.time() - start_time
+
+    print(f"\n  总接口:     {total_apis}")
+    print(f"  已覆盖:     {covered_apis}")
+    print(f"  总用例:     {total_cases}")
+    print(f"  总覆盖率:   {overall_rate}%")
+    print(f"  通过模块:   {passed_modules}/{len(all_results)}")
+    print(f"  失败模块:   {failed_modules}/{len(all_results)}")
+    print(f"  总耗时:     {elapsed:.1f} 秒")
+    print("=" * 60)
+
+    return all_results
 
 
 if __name__ == "__main__":

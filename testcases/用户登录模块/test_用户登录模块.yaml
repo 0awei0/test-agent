@@ -1,0 +1,616 @@
+suite: 用户登录模块
+base_url: "{{base_url}}"
+setup:
+  - name: 环境检查_后端服务是否可用
+    priority: P0
+    marker: smoke
+    request:
+      method: GET
+      path: /user/shop/status
+      headers:
+        Content-Type: application/json
+    assert:
+      status_code: 200
+      json:
+        code: 1
+
+cases:
+  # ==================== 微信登录接口 ====================
+  - name: 微信登录_正常流程_有效微信code
+    priority: P0
+    marker: smoke
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: "valid_wechat_code_123456"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+      jsonpath:
+        "$.data.token": "$.data.token"  # 验证token存在
+    db_check:
+      - sql: "SELECT * FROM user WHERE openid IS NOT NULL ORDER BY id DESC LIMIT 1"
+        expect_not_empty: true
+
+  - name: 微信登录_参数校验_code为空
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: ""
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "微信code不能为空"
+
+  - name: 微信登录_参数校验_code为null
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: null
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "微信code不能为空"
+
+  - name: 微信登录_参数校验_不传code字段
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body: {}
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "微信code不能为空"
+
+  - name: 微信登录_参数校验_无效code
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: "invalid_code_xyz"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "微信登录失败"
+
+  - name: 微信登录_参数校验_code为数字类型
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: 123456
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "$.msg"  # 验证msg字段存在
+
+  - name: 微信登录_参数校验_code超长字符串
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: "abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "$.msg"
+
+  - name: 微信登录_边界值_code特殊字符
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: "<script>alert('xss')</script>"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "$.msg"
+
+  - name: 微信登录_边界值_code包含空格
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: " code with spaces "
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "$.msg"
+
+  - name: 微信登录_请求体_空请求体
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body: null
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "$.msg"
+
+  - name: 微信登录_请求体_请求体为字符串
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body: "not_a_json"
+    assert:
+      status_code: 400  # JSON解析错误应该返回400
+    on_error:
+      continue_on_error: true  # 允许不同错误码
+
+  - name: 微信登录_请求体_请求体为数组
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        - code: "test"
+    assert:
+      status_code: 400  # 请求体格式错误应该返回400
+    on_error:
+      continue_on_error: true  # 允许不同错误码
+
+  - name: 微信登录_并发_重复code登录
+    priority: P3
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: "repeat_code_123"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT COUNT(*) as cnt FROM user WHERE openid IS NOT NULL"
+        expect_count: 1  # 同一code应该返回同一用户
+
+  # ==================== 退出登录接口 ====================
+  - name: 退出登录_正常流程_已登录用户退出
+    priority: P0
+    marker: smoke
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM user WHERE token = '{{user_token}}'"
+        expect_empty: true  # token应该被清除
+
+  - name: 退出登录_权限校验_未登录_不传token
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "未登录"
+
+  - name: 退出登录_权限校验_token为空字符串
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: ""
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "未登录"
+
+  - name: 退出登录_权限校验_token为null
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: null
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "未登录"
+
+  - name: 退出登录_权限校验_无效token
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "invalid_token_123456"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "token无效"
+
+  - name: 退出登录_权限校验_过期token
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "expired_token_123456"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "token已过期"
+
+  - name: 退出登录_权限校验_已退出的token再次使用
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "token无效"
+
+  - name: 退出登录_边界值_token包含特殊字符
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "token@#$%^&*()"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "$.msg"
+
+  - name: 退出登录_边界值_token超长
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "$.msg"
+
+  - name: 退出登录_边界值_token为数字
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "123456"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "$.msg"
+
+  - name: 退出登录_并发_重复退出登录
+    priority: P3
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 0
+      jsonpath:
+        "$.msg": "token无效"
+
+  - name: 退出登录_业务逻辑_退出后访问其他接口
+    priority: P3
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM user WHERE token = '{{user_token}}'"
+        expect_empty: true
+    # 注意：此用例只是验证退出，后续接口访问需要在另一个测试中验证
+
+  # ==================== 登录后退出的完整流程 ====================
+  - name: 完整流程_登录后退出_验证token失效
+    priority: P0
+    marker: smoke
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT * FROM user WHERE token = '{{user_token}}'"
+        expect_empty: true
+
+  - name: 完整流程_登录后退出_验证用户状态
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 200
+      json:
+        code: 1
+    db_check:
+      - sql: "SELECT update_time FROM user WHERE id = (SELECT user_id FROM user WHERE token = '{{user_token}}' LIMIT 1)"
+        expect_not_empty: true  # 验证update_time被更新
+
+  # ==================== 接口方法错误 ====================
+  - name: 微信登录_错误请求方法_GET请求
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: GET
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+    assert:
+      status_code: 405  # 405 Method Not Allowed
+    on_error:
+      continue_on_error: true  # 某些框架可能返回其他错误码
+
+  - name: 退出登录_错误请求方法_GET请求
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: GET
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 405
+    on_error:
+      continue_on_error: true
+
+  - name: 微信登录_错误请求方法_PUT请求
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: PUT
+      path: /user/user/login
+      headers:
+        Content-Type: application/json
+      body:
+        code: "test_code"
+    assert:
+      status_code: 405
+    on_error:
+      continue_on_error: true
+
+  - name: 退出登录_错误请求方法_DELETE请求
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: DELETE
+      path: /user/user/logout
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 405
+    on_error:
+      continue_on_error: true
+
+  # ==================== Content-Type错误 ====================
+  - name: 微信登录_ContentType错误_使用text/plain
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      headers:
+        Content-Type: text/plain
+      body:
+        code: "test_code"
+    assert:
+      status_code: 415  # 415 Unsupported Media Type
+    on_error:
+      continue_on_error: true
+
+  - name: 微信登录_ContentType错误_不设置ContentType
+    priority: P1
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login
+      body:
+        code: "test_code"
+    assert:
+      status_code: 415
+    on_error:
+      continue_on_error: true
+
+  # ==================== 接口路径错误 ====================
+  - name: 微信登录_路径错误_多一个斜杠
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/user/login/
+      headers:
+        Content-Type: application/json
+      body:
+        code: "test_code"
+    assert:
+      status_code: 404  # 404 Not Found
+    on_error:
+      continue_on_error: true
+
+  - name: 退出登录_路径错误_少一个层级
+    priority: P2
+    marker: regression
+    depends_on: 环境检查_后端服务是否可用
+    request:
+      method: POST
+      path: /user/logout  # 注意：正确的路径是 /user/user/logout，这里故意少一个user层级
+      headers:
+        Content-Type: application/json
+        token: "{{user_token}}"
+    assert:
+      status_code: 404
+    on_error:
+      continue_on_error: true

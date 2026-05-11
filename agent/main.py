@@ -26,14 +26,18 @@ def create_generator_agent() -> Agent:
 
 
 def create_reviewer_agent() -> Agent:
-    """创建测试用例审核 Agent（使用 doubao，纯推理）"""
+    """创建测试用例审核 Agent（使用 doubao，带 Swagger 工具）"""
     system_prompt = load_prompt("reviewer.md")
     model = doubao_model if doubao_model else mimo_model
+    reviewer_tools = [
+        t for t in all_tools
+        if t.name in ("parse_swagger_doc", "get_api_detail")
+    ]
     return Agent(
         name="TestReviewer",
         instructions=system_prompt,
         model=model,
-        tools=[],
+        tools=reviewer_tools,
     )
 
 

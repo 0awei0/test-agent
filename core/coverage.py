@@ -159,6 +159,49 @@ def analyze_coverage(swagger_paths: list, yaml_dir: str) -> dict:
     }
 
 
+def analyze_module_coverage(apis: list, yaml_dir: str) -> dict:
+    """分析单个模块的覆盖率"""
+    covered_cases = load_yaml_testcases(yaml_dir)
+
+    covered_apis = []
+    uncovered_apis = []
+
+    for api in apis:
+        matched = match_api_to_cases(api, covered_cases)
+        if matched:
+            api["cases"] = matched
+            api["case_count"] = len(matched)
+            covered_apis.append(api)
+        else:
+            api["cases"] = []
+            api["case_count"] = 0
+            uncovered_apis.append(api)
+
+    total = len(apis)
+    covered_count = len(covered_apis)
+    coverage_rate = (covered_count / total * 100) if total > 0 else 0
+
+    # 统计用例优先级分布
+    priority_counts = {"P0": 0, "P1": 0, "P2": 0, "P3": 0, "other": 0}
+    for case in covered_cases:
+        priority = case.get("priority", "other")
+        if priority in priority_counts:
+            priority_counts[priority] += 1
+        else:
+            priority_counts["other"] += 1
+
+    return {
+        "total_apis": total,
+        "covered_apis": covered_count,
+        "uncovered_apis": len(uncovered_apis),
+        "total_cases": len(covered_cases),
+        "coverage_rate": round(coverage_rate, 1),
+        "priority_counts": priority_counts,
+        "covered": covered_apis,
+        "uncovered": uncovered_apis,
+    }
+
+
 def format_coverage_report(result: dict) -> str:
     """格式化覆盖率报告"""
     s = result["summary"]

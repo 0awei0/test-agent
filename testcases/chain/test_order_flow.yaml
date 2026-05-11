@@ -1,5 +1,5 @@
 suite: 外卖下单完整链路
-base_url: "http://124.222.42.246:8080"
+base_url: "http://zombieai.cn:8080"
 
 chain:
   # Step 1: 管理员登录

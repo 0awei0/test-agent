@@ -11,59 +11,62 @@ def parse_swagger_doc(doc_path: str = "docs/admin-swagger.json") -> str:
     Args:
         doc_path: Swagger JSON 文件路径，如 docs/admin-swagger.json 或 docs/user-swagger.json
     """
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    full_path = os.path.join(project_root, doc_path)
+    try:
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        full_path = os.path.join(project_root, doc_path)
 
-    if not os.path.exists(full_path):
-        return f"Error: File not found: {doc_path}"
+        if not os.path.exists(full_path):
+            return f"Error: File not found: {doc_path}"
 
-    with open(full_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        with open(full_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    info = data.get("info", {})
-    result = {
-        "title": info.get("title", ""),
-        "description": info.get("description", ""),
-        "base_path": data.get("basePath", "/"),
-        "apis": [],
-    }
+        info = data.get("info", {})
+        result = {
+            "title": info.get("title", ""),
+            "description": info.get("description", ""),
+            "base_path": data.get("basePath", "/"),
+            "apis": [],
+        }
 
-    paths = data.get("paths", {})
-    for path, methods in paths.items():
-        for method, detail in methods.items():
-            if method in ("get", "post", "put", "delete", "patch"):
-                api_info = {
-                    "path": path,
-                    "method": method.upper(),
-                    "summary": detail.get("summary", ""),
-                    "tags": detail.get("tags", []),
-                    "parameters": [],
-                    "responses": {},
-                }
+        paths = data.get("paths", {})
+        for path, methods in paths.items():
+            for method, detail in methods.items():
+                if method in ("get", "post", "put", "delete", "patch"):
+                    api_info = {
+                        "path": path,
+                        "method": method.upper(),
+                        "summary": detail.get("summary", ""),
+                        "tags": detail.get("tags", []),
+                        "parameters": [],
+                        "responses": {},
+                    }
 
-                for param in detail.get("parameters", []):
-                    api_info["parameters"].append({
-                        "name": param.get("name", ""),
-                        "in": param.get("in", ""),
-                        "required": param.get("required", False),
-                        "type": param.get("type", param.get("schema", {}).get("type", "")),
-                        "description": param.get("description", ""),
-                    })
+                    for param in detail.get("parameters", []):
+                        api_info["parameters"].append({
+                            "name": param.get("name", ""),
+                            "in": param.get("in", ""),
+                            "required": param.get("required", False),
+                            "type": param.get("type", param.get("schema", {}).get("type", "")),
+                            "description": param.get("description", ""),
+                        })
 
-                for code, resp in detail.get("responses", {}).items():
-                    api_info["responses"][code] = resp.get("description", "")
+                    for code, resp in detail.get("responses", {}).items():
+                        api_info["responses"][code] = resp.get("description", "")
 
-                result["apis"].append(api_info)
+                    result["apis"].append(api_info)
 
-    output = json.dumps(result, ensure_ascii=False, indent=2)
+        output = json.dumps(result, ensure_ascii=False, indent=2)
 
-    if len(output) > 8000:
-        api_list = []
-        for api in result["apis"]:
-            api_list.append(f"{api['method']:6s} {api['path']:40s} {api['summary']}")
-        output = f"共 {len(result['apis'])} 个接口：\n\n" + "\n".join(api_list)
+        if len(output) > 8000:
+            api_list = []
+            for api in result["apis"]:
+                api_list.append(f"{api['method']:6s} {api['path']:40s} {api['summary']}")
+            output = f"共 {len(result['apis'])} 个接口：\n\n" + "\n".join(api_list)
 
-    return output
+        return output
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {str(e)}"
 
 
 @function_tool
@@ -76,66 +79,72 @@ def get_api_detail(doc_path: str, api_path: str, method: str = "GET") -> str:
         api_path: 接口路径，如 /admin/employee/login
         method: HTTP 方法 (GET/POST/PUT/DELETE)
     """
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    full_path = os.path.join(project_root, doc_path)
+    try:
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        full_path = os.path.join(project_root, doc_path)
 
-    with open(full_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        if not os.path.exists(full_path):
+            return f"Error: File not found: {doc_path}"
 
-    paths = data.get("paths", {})
-    if api_path not in paths:
-        matches = [p for p in paths if api_path in p]
-        if matches:
-            return f"未找到 {api_path}，你是不是要找: {matches}"
-        return f"未找到接口: {api_path}"
+        with open(full_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    method_lower = method.lower()
-    if method_lower not in paths[api_path]:
-        return f"接口 {api_path} 不支持 {method} 方法，支持: {list(paths[api_path].keys())}"
+        paths = data.get("paths", {})
+        if api_path not in paths:
+            matches = [p for p in paths if api_path in p]
+            if matches:
+                return f"未找到 {api_path}，你是不是要找: {matches}"
+            return f"未找到接口: {api_path}"
 
-    detail = paths[api_path][method_lower]
+        method_lower = method.lower()
+        if method_lower not in paths[api_path]:
+            return f"接口 {api_path} 不支持 {method} 方法，支持: {list(paths[api_path].keys())}"
 
-    definitions = data.get("definitions", {})
+        detail = paths[api_path][method_lower]
 
-    result = {
-        "path": api_path,
-        "method": method.upper(),
-        "summary": detail.get("summary", ""),
-        "tags": detail.get("tags", []),
-        "parameters": [],
-        "request_body": None,
-        "responses": {},
-    }
+        definitions = data.get("definitions", {})
 
-    for param in detail.get("parameters", []):
-        if param.get("in") == "body":
-            schema = param.get("schema", {})
-            ref = schema.get("$ref", "")
+        result = {
+            "path": api_path,
+            "method": method.upper(),
+            "summary": detail.get("summary", ""),
+            "tags": detail.get("tags", []),
+            "parameters": [],
+            "request_body": None,
+            "responses": {},
+        }
+
+        for param in detail.get("parameters", []):
+            if param.get("in") == "body":
+                schema = param.get("schema", {})
+                ref = schema.get("$ref", "")
+                if ref:
+                    ref_name = ref.split("/")[-1]
+                    result["request_body"] = {
+                        "description": param.get("description", ""),
+                        "schema_ref": ref_name,
+                        "schema": definitions.get(ref_name, {}),
+                    }
+                else:
+                    result["request_body"] = {"schema": schema}
+            else:
+                result["parameters"].append({
+                    "name": param.get("name", ""),
+                    "in": param.get("in", ""),
+                    "required": param.get("required", False),
+                    "type": param.get("type", ""),
+                    "description": param.get("description", ""),
+                })
+
+        for code, resp in detail.get("responses", {}).items():
+            schema = resp.get("schema", {})
+            ref = schema.get("$ref", "") if schema else ""
+            resp_info = {"description": resp.get("description", "")}
             if ref:
                 ref_name = ref.split("/")[-1]
-                result["request_body"] = {
-                    "description": param.get("description", ""),
-                    "schema_ref": ref_name,
-                    "schema": definitions.get(ref_name, {}),
-                }
-            else:
-                result["request_body"] = {"schema": schema}
-        else:
-            result["parameters"].append({
-                "name": param.get("name", ""),
-                "in": param.get("in", ""),
-                "required": param.get("required", False),
-                "type": param.get("type", ""),
-                "description": param.get("description", ""),
-            })
+                resp_info["schema"] = definitions.get(ref_name, {})
+            result["responses"][code] = resp_info
 
-    for code, resp in detail.get("responses", {}).items():
-        schema = resp.get("schema", {})
-        ref = schema.get("$ref", "") if schema else ""
-        resp_info = {"description": resp.get("description", "")}
-        if ref:
-            ref_name = ref.split("/")[-1]
-            resp_info["schema"] = definitions.get(ref_name, {})
-        result["responses"][code] = resp_info
-
-    return json.dumps(result, ensure_ascii=False, indent=2)
+        return json.dumps(result, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {str(e)}"

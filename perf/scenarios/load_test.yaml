@@ -1,5 +1,5 @@
 suite: 苍穹外卖-负载测试
-base_url: "http://124.222.42.246:8080"
+base_url: "http://zombieai.cn:8080"
 
 config:
   users: 50
