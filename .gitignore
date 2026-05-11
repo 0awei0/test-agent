@@ -15,4 +15,4 @@ allure-results/
 test_plan.json
 perf/generated_locustfile.py
 logs/
-resume/
+resume/main.py
