@@ -165,7 +165,7 @@ def run_module_pipeline(module: dict, swagger_files: list, module_index: int, to
     ])
 
     # ========== 内循环 1: 生成 + 审核 + 覆盖率 ==========
-    max_gen_rounds = 3
+    max_gen_rounds = 1
     current_yaml = None
 
     for gen_round in range(max_gen_rounds):
@@ -219,7 +219,7 @@ def run_module_pipeline(module: dict, swagger_files: list, module_index: int, to
             print(f"  └─ ⚠️ 覆盖率不足，继续补充...")
 
     # ========== 内循环 2: 执行 + 失败分析 ==========
-    max_exec_rounds = 2
+    max_exec_rounds = 1
     module_result = {
         "module": name,
         "yaml_file": filepath,
