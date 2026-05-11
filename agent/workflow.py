@@ -205,7 +205,9 @@ def run_module_pipeline(module: dict, swagger_files: list, module_index: int, to
         else:
             print(f"  │  ❌ 审核未通过")
             print(f"  │  反馈: {review_feedback[:200]}...")
-            continue
+            # 审核未通过也继续执行，使用默认覆盖率
+            coverage = {"coverage_rate": 0, "covered_apis": 0, "total_apis": len(apis), "total_cases": 0, "priority_counts": {"P0": 0, "P1": 0, "P2": 0}}
+            break
 
         # 检查模块覆盖率
         coverage = analyze_module_coverage(apis, os.path.join(project_root, "testcases"))
