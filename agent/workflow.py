@@ -247,11 +247,29 @@ def run_module_pipeline(module: dict, swagger_files: list, module_index: int, to
         summary_lines = [l for l in lines if "passed" in l or "failed" in l or "==" in l]
         test_summary = "\n".join(summary_lines[-5:]) if summary_lines else output[-500:]
 
+        # 解析通过率
+        import re
+        passed_count, failed_count = 0, 0
+        for line in lines:
+            m = re.search(r"(\d+) passed", line)
+            if m:
+                passed_count = int(m.group(1))
+            m = re.search(r"(\d+) failed", line)
+            if m:
+                failed_count = int(m.group(1))
+        total_tests = passed_count + failed_count
+        pass_rate = round(passed_count / total_tests * 100, 1) if total_tests > 0 else 0
+
         print(f"  │  {test_summary}")
+        print(f"  │  通过率: {passed_count}/{total_tests} ({pass_rate}%)")
 
         module_result["test_result"] = {
             "returncode": result.returncode,
             "output": test_summary,
+            "passed": passed_count,
+            "failed": failed_count,
+            "total": total_tests,
+            "pass_rate": pass_rate,
         }
 
         # 如果全部通过，不需要失败分析
@@ -335,6 +353,8 @@ def run_workflow(swagger_dir: str = "docs"):
     total_apis = 0
     covered_apis = 0
     total_cases = 0
+    total_passed = 0
+    total_failed = 0
     passed_modules = 0
     failed_modules = 0
 
@@ -351,16 +371,25 @@ def run_workflow(swagger_dir: str = "docs"):
             failed_modules += 1
 
         status = "✅" if test and test.get("returncode") == 0 else "❌"
-        rate = cov.get("coverage_rate", 0)
-        print(f"  {status} {r['module']:20s} 覆盖率:{rate:5.1f}% 用例:{cov.get('total_cases',0)}")
+        cov_rate = cov.get("coverage_rate", 0)
+        test_passed = test.get("passed", 0) if test else 0
+        test_total = test.get("total", 0) if test else 0
+        test_pass_rate = test.get("pass_rate", 0) if test else 0
+        total_passed += test_passed
+        total_failed += test.get("failed", 0) if test else 0
+        print(f"  {status} {r['module']:20s} 覆盖率:{cov_rate:5.1f}%  通过率:{test_passed}/{test_total} ({test_pass_rate}%)")
 
     overall_rate = round(covered_apis / total_apis * 100, 1) if total_apis > 0 else 0
+    overall_pass_rate = round(total_passed / (total_passed + total_failed) * 100, 1) if (total_passed + total_failed) > 0 else 0
     elapsed = time.time() - start_time
 
     print(f"\n  总接口:     {total_apis}")
     print(f"  已覆盖:     {covered_apis}")
     print(f"  总用例:     {total_cases}")
     print(f"  总覆盖率:   {overall_rate}%")
+    print(f"  总通过数:   {total_passed}")
+    print(f"  总失败数:   {total_failed}")
+    print(f"  总通过率:   {overall_pass_rate}%")
     print(f"  通过模块:   {passed_modules}/{len(all_results)}")
     print(f"  失败模块:   {failed_modules}/{len(all_results)}")
     print(f"  总耗时:     {elapsed:.1f} 秒")
