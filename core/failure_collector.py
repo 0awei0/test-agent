@@ -26,12 +26,13 @@ def collect_failures_from_allure(report_dir: str = "reports") -> list:
 
             status = data.get("status", "")
             if status in ("failed", "broken"):
+                status_details = data.get("statusDetails", {})
                 failure = {
                     "name": data.get("name", "unknown"),
                     "full_name": data.get("fullName", ""),
                     "status": status,
-                    "message": data.get("statusMessage", ""),
-                    "trace": data.get("statusTrace", ""),
+                    "message": status_details.get("message", ""),
+                    "trace": status_details.get("trace", ""),
                     "labels": {l["name"]: l["value"] for l in data.get("labels", [])},
                     "parameters": data.get("parameters", []),
                     "start": data.get("start", 0),
